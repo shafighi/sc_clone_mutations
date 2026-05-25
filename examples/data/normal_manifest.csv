@@ -1,0 +1,2 @@
+sample_id,patient_id,bam_path,bai_path
+NORMAL01,PATIENT01,/path/to/normal/NORMAL01.bam,/path/to/normal/NORMAL01.bam.bai

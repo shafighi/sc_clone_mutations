@@ -1,0 +1,13 @@
+cell_id,bam_path,bai_path,sample_id,patient_id
+CELL_001,/path/to/cells/CELL_001.bam,/path/to/cells/CELL_001.bam.bai,SAMPLE01,PATIENT01
+CELL_002,/path/to/cells/CELL_002.bam,/path/to/cells/CELL_002.bam.bai,SAMPLE01,PATIENT01
+CELL_003,/path/to/cells/CELL_003.bam,/path/to/cells/CELL_003.bam.bai,SAMPLE01,PATIENT01
+CELL_004,/path/to/cells/CELL_004.bam,/path/to/cells/CELL_004.bam.bai,SAMPLE01,PATIENT01
+CELL_005,/path/to/cells/CELL_005.bam,/path/to/cells/CELL_005.bam.bai,SAMPLE01,PATIENT01
+CELL_006,/path/to/cells/CELL_006.bam,/path/to/cells/CELL_006.bam.bai,SAMPLE01,PATIENT01
+CELL_007,/path/to/cells/CELL_007.bam,/path/to/cells/CELL_007.bam.bai,SAMPLE01,PATIENT01
+CELL_008,/path/to/cells/CELL_008.bam,/path/to/cells/CELL_008.bam.bai,SAMPLE01,PATIENT01
+CELL_009,/path/to/cells/CELL_009.bam,/path/to/cells/CELL_009.bam.bai,SAMPLE02,PATIENT01
+CELL_010,/path/to/cells/CELL_010.bam,/path/to/cells/CELL_010.bam.bai,SAMPLE02,PATIENT01
+CELL_011,/path/to/cells/CELL_011.bam,/path/to/cells/CELL_011.bam.bai,SAMPLE02,PATIENT01
+CELL_012,/path/to/cells/CELL_012.bam,/path/to/cells/CELL_012.bam.bai,SAMPLE02,PATIENT01

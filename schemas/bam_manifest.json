@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BAM manifest schema",
+  "description": "Input manifest linking cell IDs to per-cell BAM files",
+  "type": "object",
+  "properties": {
+    "cell_id": {
+      "type": "string",
+      "description": "Unique cell identifier — must match cell_id in cell_metadata and MEDICC2 tree leaves"
+    },
+    "bam_path": {
+      "type": "string",
+      "description": "Absolute or relative path to the cell BAM file"
+    },
+    "bai_path": {
+      "type": ["string", "null"],
+      "description": "Path to the BAM index (.bai). Inferred from bam_path if empty."
+    },
+    "sample_id": {
+      "type": "string",
+      "description": "Sample identifier (tumour sample the cell belongs to)"
+    },
+    "patient_id": {
+      "type": "string",
+      "description": "Patient / donor identifier (used to join with matched normal)"
+    }
+  },
+  "required": ["cell_id", "bam_path", "sample_id", "patient_id"],
+  "additionalProperties": true,
+  "examples": [
+    {
+      "cell_id": "CELL001",
+      "bam_path": "/data/cells/CELL001.bam",
+      "bai_path": "/data/cells/CELL001.bam.bai",
+      "sample_id": "SAMPLE01",
+      "patient_id": "PATIENT01"
+    }
+  ]
+}

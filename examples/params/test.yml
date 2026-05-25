@@ -1,0 +1,21 @@
+# test.yml — parameters for a minimal local test run
+# Usage: nextflow run main.nf -profile docker -params-file examples/params/test.yml
+
+bam_manifest:    "examples/data/bam_manifest.csv"
+cell_metadata:   "examples/data/cell_metadata.csv"
+medicc2_tree:    "examples/data/medicc2_tree.new"
+scunique_events: "examples/data/scunique_events.tsv"
+
+# TODO: replace with your reference paths
+fasta:           "/ref/hg38/hg38.fa"
+
+tumor_only:      true
+callers:         ["mutect2", "strelka2"]
+
+clone_strategy:        "internal_node"
+min_cells_per_clone:   2
+min_branch_length:     0.1
+small_clone_action:    "merge"
+
+consensus_min_callers: 1  # relax for small test dataset
+outdir:                "test_results"

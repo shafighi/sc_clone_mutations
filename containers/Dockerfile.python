@@ -1,0 +1,63 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# containers/Dockerfile.python
+#
+# Python analysis container for sc_clone_mutations:
+#   - Tree parsing and clone assignment   (dendropy, scipy, scikit-learn)
+#   - VCF parsing / comparison            (pysam, pandas)
+#   - Plotting                            (matplotlib, seaborn)
+#   - Report generation                   (jinja2)
+#
+# Build:
+#   docker build -f containers/Dockerfile.python -t scclone-python:1.0.0 .
+#
+# Push to GHCR:
+#   docker tag scclone-python:1.0.0 ghcr.io/<YOUR_ORG>/scclone-python:1.0.0
+#   docker push ghcr.io/<YOUR_ORG>/scclone-python:1.0.0
+#
+# Singularity / Apptainer (on HPC, no root needed):
+#   apptainer pull scclone-python.sif docker://ghcr.io/<YOUR_ORG>/scclone-python:1.0.0
+# ─────────────────────────────────────────────────────────────────────────────
+
+FROM python:3.11-slim-bookworm
+
+LABEL org.opencontainers.image.title="scclone-python" \
+      org.opencontainers.image.description="Python environment for sc_clone_mutations" \
+      org.opencontainers.image.version="1.0.0"
+
+# System dependencies needed by pysam (htslib), plotting backends, etc.
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+        gcc \
+        g++ \
+        make \
+        zlib1g-dev \
+        libbz2-dev \
+        liblzma-dev \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libffi-dev \
+        libhts-dev \
+        tabix \
+        git \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+# Pin versions for reproducibility — update as needed
+COPY containers/requirements_python.txt /tmp/requirements.txt
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Copy pipeline scripts into /usr/local/bin so Nextflow can find them
+COPY bin/ /usr/local/bin/scclone/
+RUN chmod +x /usr/local/bin/scclone/*.py && \
+    ln -s /usr/local/bin/scclone/*.py /usr/local/bin/ 2>/dev/null || true
+
+# Non-root user for Singularity compatibility
+RUN useradd -m -u 1000 scclone
+USER scclone
+
+WORKDIR /work
+
+# Smoke test
+RUN python -c "import dendropy, pandas, pysam, scipy, sklearn, matplotlib, seaborn, jinja2; print('OK')"

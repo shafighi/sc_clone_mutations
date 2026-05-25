@@ -1,0 +1,59 @@
+# Nextflow
+.nextflow/
+.nextflow.log*
+work/
+results/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+.env
+
+# Data (never commit raw data or BAMs)
+*.bam
+*.bai
+*.cram
+*.crai
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.vcf.bgz
+*.vcf.bgz.tbi
+
+# Containers (built artifacts)
+containers/*.sif
+containers/*.img
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Singularity cache
+singularity_cache/
+apptainer_cache/
+
+# Temp / scratch
+tmp/
+scratch/
+*.tmp
+
+# Reports (generated)
+results/
+report/
+multiqc_data/
+multiqc_report.html

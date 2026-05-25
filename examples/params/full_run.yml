@@ -1,0 +1,63 @@
+# full_run.yml — production parameter template
+# Fill in all paths before running on real data.
+# Usage: nextflow run main.nf -profile singularity,slurm -params-file examples/params/full_run.yml
+
+# ── Required inputs ──────────────────────────────────────────────────────────
+bam_manifest:         "/data/project/bam_manifest.csv"
+cell_metadata:        "/data/project/cell_metadata.csv"
+medicc2_tree:         "/data/project/analysis/medicc2/sample_final_tree.new"
+medicc2_events:       "/data/project/analysis/medicc2/sample_events_per_branch.tsv"
+scunique_events:      "/data/project/analysis/scunique/unique_events.tsv"
+
+# ── Reference genome ─────────────────────────────────────────────────────────
+genome:               "hg38"
+fasta:                "/ref/hg38/Homo_sapiens_assembly38.fasta"
+fai:                  "/ref/hg38/Homo_sapiens_assembly38.fasta.fai"
+dict:                 "/ref/hg38/Homo_sapiens_assembly38.dict"
+
+# Mutect2 germline resource (gnomAD or similar)
+germline_resource:     "/ref/hg38/af-only-gnomad.hg38.vcf.gz"
+germline_resource_tbi: "/ref/hg38/af-only-gnomad.hg38.vcf.gz.tbi"
+
+# Panel of normals (optional but recommended for Mutect2)
+panel_of_normals:     "/ref/hg38/1000g_pon.hg38.vcf.gz"
+panel_of_normals_tbi: "/ref/hg38/1000g_pon.hg38.vcf.gz.tbi"
+
+# Target BED (optional — whole genome if omitted)
+intervals:            "/ref/hg38/wgs_calling_regions.hg38.interval_list"
+
+# ── Matched normal ────────────────────────────────────────────────────────────
+normal_manifest:      "/data/project/normal_manifest.csv"
+tumor_only:           false
+
+# ── Clone assignment ──────────────────────────────────────────────────────────
+clone_strategy:       "internal_node"   # or: distance | event_profile | hybrid
+min_cells_per_clone:  5
+min_branch_length:    0.05
+small_clone_action:   "merge"
+event_similarity_thr: 0.5
+
+# ── Callers ───────────────────────────────────────────────────────────────────
+callers:              ["mutect2", "strelka2", "freebayes"]
+
+# Extra caller args — see GATK / Strelka2 / FreeBayes docs
+mutect2_extra_args:   "--af-of-alleles-not-in-resource 0.0000025"
+strelka2_extra_args:  ""
+freebayes_extra_args: "--min-alternate-fraction 0.05 --min-alternate-count 3 --pooled-continuous"
+
+# ── Consensus ─────────────────────────────────────────────────────────────────
+consensus_min_callers: 2
+consensus_pass_only:   true
+
+# ── Annotation (optional) ─────────────────────────────────────────────────────
+annotate:          false
+# vep_cache:       "/ref/vep_cache"   # uncomment if running annotation
+
+# ── Output ────────────────────────────────────────────────────────────────────
+outdir:            "/data/project/results/sc_clone_mutations"
+publish_dir_mode:  "copy"
+
+# ── Resources ─────────────────────────────────────────────────────────────────
+max_cpus:          32
+max_memory:        "256.GB"
+max_time:          "240.h"
