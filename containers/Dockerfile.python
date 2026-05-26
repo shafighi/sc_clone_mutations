@@ -38,6 +38,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         tabix \
         git \
         curl \
+        procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages
