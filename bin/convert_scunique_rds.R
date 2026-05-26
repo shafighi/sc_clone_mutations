@@ -10,6 +10,9 @@
 # Usage:
 #   Rscript convert_scunique_rds.R <scunique_results_dir> <output_dir> [<sample_id>]
 
+if (!requireNamespace("ape", quietly = TRUE)) {
+  install.packages("ape", repos = "https://cloud.r-project.org", quiet = TRUE)
+}
 suppressPackageStartupMessages(library(ape))
 
 args <- commandArgs(trailingOnly = TRUE)
