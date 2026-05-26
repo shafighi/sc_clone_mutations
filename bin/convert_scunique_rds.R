@@ -182,6 +182,12 @@ if (!is.null(meta_file)) {
     if (!"sample_id" %in% names(meta_df)) meta_df$sample_id <- sample_id
     if (!"patient_id" %in% names(meta_df)) meta_df$patient_id <- sample_id
     
+    # Deduplicate to one row per cell (df_pass may be per-segment)
+    if (any(duplicated(meta_df$cell_id))) {
+      cat("  Deduplicating: collapsing", nrow(meta_df), "rows to unique cells\n")
+      meta_df <- meta_df[!duplicated(meta_df$cell_id), ]
+    }
+    
     out_meta <- file.path(output_dir, "cell_metadata.csv")
     write.csv(meta_df, file = out_meta, row.names = FALSE)
     cat("  ->", nrow(meta_df), "cells written:", out_meta, "\n")
