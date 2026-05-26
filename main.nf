@@ -106,16 +106,25 @@ include { PSEUDOBULK           } from './subworkflows/pseudobulk'
 include { MUTATION_CALLING     } from './subworkflows/mutation_calling'
 include { VARIANT_ANALYSIS     } from './subworkflows/variant_analysis'
 include { REPORTING            } from './subworkflows/reporting'
+include { CONVERT_SCUNIQUE     } from './modules/local/convert_scunique/main'
 
 // ─── Parameter validation ─────────────────────────────────────────────────────
 
 def validateRequiredParams() {
     def errors = []
     if (!params.bam_manifest)    errors << "  --bam_manifest is required"
-    if (!params.cell_metadata)   errors << "  --cell_metadata is required"
-    if (!params.medicc2_tree)    errors << "  --medicc2_tree is required"
-    if (!params.scunique_events) errors << "  --scunique_events is required"
     if (!params.fasta)           errors << "  --fasta is required"
+
+    // Either provide pre-processed files OR a scUnique results directory
+    if (params.scunique_dir) {
+        // RDS auto-conversion mode — tree, events, metadata derived from dir
+        log.info "Using scUnique RDS auto-conversion mode (--scunique_dir)"
+    } else {
+        if (!params.cell_metadata)   errors << "  --cell_metadata is required (or use --scunique_dir)"
+        if (!params.medicc2_tree)    errors << "  --medicc2_tree is required (or use --scunique_dir)"
+        if (!params.scunique_events) errors << "  --scunique_events is required (or use --scunique_dir)"
+    }
+
     if (params.clone_strategy == 'distance' && !params.distance_threshold)
         errors << "  --distance_threshold is required when --clone_strategy distance"
     if (params.annotate && !params.vep_cache)
@@ -138,9 +147,11 @@ workflow {
     ║         sc_clone_mutations  v${workflow.manifest.version}
     ╠══════════════════════════════════════════════════════════════════════════╣
     ║  BAM manifest       : ${params.bam_manifest}
-    ║  Cell metadata      : ${params.cell_metadata}
-    ║  MEDICC2 tree       : ${params.medicc2_tree}
-    ║  scUnique events    : ${params.scunique_events}
+    ║  Input mode         : ${params.scunique_dir ? 'scUnique RDS dir' : 'pre-processed files'}
+    ║  scUnique dir       : ${params.scunique_dir ?: 'N/A'}
+    ║  Cell metadata      : ${params.cell_metadata ?: '(from scUnique dir)'}
+    ║  MEDICC2 tree       : ${params.medicc2_tree ?: '(from scUnique dir)'}
+    ║  scUnique events    : ${params.scunique_events ?: '(from scUnique dir)'}
     ║  Reference FASTA    : ${params.fasta}
     ║  Normal manifest    : ${params.normal_manifest ?: 'not provided (tumor-only)'}
     ║  Clone strategy     : ${params.clone_strategy}
@@ -177,25 +188,34 @@ workflow {
     ch_bam_manifest = Channel
         .fromPath(params.bam_manifest, checkIfExists: true)
 
-    // Cell metadata
-    ch_cell_metadata = Channel
-        .fromPath(params.cell_metadata, checkIfExists: true)
-
-    // MEDICC2 tree
-    ch_medicc2_tree = Channel
-        .fromPath(params.medicc2_tree, checkIfExists: true)
-
-    ch_medicc2_events = params.medicc2_events
-        ? Channel.fromPath(params.medicc2_events, checkIfExists: true)
-        : Channel.value([])
-
-    // scUnique events
-    ch_scunique_events = Channel
-        .fromPath(params.scunique_events, checkIfExists: true)
-
     // Normal manifest
     ch_normal_manifest = params.normal_manifest
         ? Channel.fromPath(params.normal_manifest, checkIfExists: true)
+        : Channel.value([])
+
+    // ── Determine input mode: scUnique RDS dir vs pre-processed files ────────
+    if (params.scunique_dir) {
+        // Auto-convert RDS files to pipeline formats
+        ch_scunique_dir = Channel.fromPath(params.scunique_dir, type: 'dir', checkIfExists: true)
+        CONVERT_SCUNIQUE(ch_scunique_dir)
+
+        ch_medicc2_tree    = CONVERT_SCUNIQUE.out.medicc2_tree
+        ch_scunique_events = CONVERT_SCUNIQUE.out.scunique_events
+        ch_cell_metadata   = params.cell_metadata
+            ? Channel.fromPath(params.cell_metadata, checkIfExists: true)
+            : CONVERT_SCUNIQUE.out.cell_metadata
+    } else {
+        // Standard mode: user provides pre-processed files
+        ch_cell_metadata = Channel
+            .fromPath(params.cell_metadata, checkIfExists: true)
+        ch_medicc2_tree = Channel
+            .fromPath(params.medicc2_tree, checkIfExists: true)
+        ch_scunique_events = Channel
+            .fromPath(params.scunique_events, checkIfExists: true)
+    }
+
+    ch_medicc2_events = params.medicc2_events
+        ? Channel.fromPath(params.medicc2_events, checkIfExists: true)
         : Channel.value([])
 
     // ── Stage A: Validate inputs ─────────────────────────────────────────────
