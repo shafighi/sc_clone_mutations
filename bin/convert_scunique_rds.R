@@ -19,6 +19,8 @@ if (!requireNamespace("ape", quietly = TRUE)) {
   suppressPackageStartupMessages(library(ape))
 }
 
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 2) {
   stop("Usage: Rscript convert_scunique_rds.R <scunique_dir> <output_dir> [<sample_id>] [<bam_dir>]")
@@ -89,14 +91,33 @@ if (!is.null(events_file)) {
   if (is.data.frame(events_obj)) {
     events_df <- events_obj
   } else if (is.list(events_obj) && !is.data.frame(events_obj)) {
-    # List of per-cell data.frames
-    if (all(sapply(events_obj, is.data.frame))) {
-      events_df <- do.call(rbind, Map(function(df, nm) {
-        df$cell_id <- nm
-        df
-      }, events_obj, names(events_obj)))
+    # scUnique format: named list of cells, each with $events sub-list
+    # Each event is a list with: start, end, h0, h1, chr
+    rows <- list()
+    for (cell_id in names(events_obj)) {
+      cell_data <- events_obj[[cell_id]]
+      cell_events <- cell_data$events
+      if (is.null(cell_events)) cell_events <- cell_data
+      if (is.list(cell_events) && length(cell_events) > 0) {
+        for (ev in cell_events) {
+          if (is.list(ev) && "chr" %in% names(ev)) {
+            rows[[length(rows) + 1]] <- data.frame(
+              cell_id = cell_id,
+              chr = as.character(ev$chr),
+              start = as.integer(ev$start),
+              end = as.integer(ev$end),
+              h0 = as.integer(ev$h0 %||% NA),
+              h1 = as.integer(ev$h1 %||% NA),
+              stringsAsFactors = FALSE
+            )
+          }
+        }
+      }
+    }
+    if (length(rows) > 0) {
+      events_df <- do.call(rbind, rows)
     } else {
-      stop("Cannot parse events object of class: ", class(events_obj))
+      stop("No events could be extracted from the uniqueEvents object")
     }
   } else {
     stop("Cannot parse events object of class: ", class(events_obj))
