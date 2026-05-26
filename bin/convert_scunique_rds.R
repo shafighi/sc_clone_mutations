@@ -11,9 +11,13 @@
 #   Rscript convert_scunique_rds.R <scunique_results_dir> <output_dir> [<sample_id>]
 
 if (!requireNamespace("ape", quietly = TRUE)) {
-  install.packages("ape", repos = "https://cloud.r-project.org", quiet = TRUE)
+  lib_path <- file.path(tempdir(), "R_libs")
+  dir.create(lib_path, recursive = TRUE, showWarnings = FALSE)
+  install.packages("ape", lib = lib_path, repos = "https://cloud.r-project.org", quiet = TRUE)
+  library(ape, lib.loc = lib_path)
+} else {
+  suppressPackageStartupMessages(library(ape))
 }
-suppressPackageStartupMessages(library(ape))
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 2) {
