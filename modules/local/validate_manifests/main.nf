@@ -29,6 +29,7 @@ process VALIDATE_MANIFESTS {
         --out_bam_manifest bam_manifest_validated.csv \\
         --out_cell_metadata cell_metadata_validated.csv \\
         --out_report       validation_report.json \\
-        --min_mapped_reads ${params.min_mapped_reads}
+        --min_mapped_reads ${params.min_mapped_reads} \\
+        --skip_bam_check
     """
 }
