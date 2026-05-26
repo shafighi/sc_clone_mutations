@@ -14,7 +14,7 @@ suppressPackageStartupMessages(library(ape))
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 2) {
-  stop("Usage: Rscript convert_scunique_rds.R <scunique_dir> <output_dir> [<sample_id>]")
+  stop("Usage: Rscript convert_scunique_rds.R <scunique_dir> <output_dir> [<sample_id>] [<bam_dir>]")
 }
 
 input_dir  <- args[1]
@@ -23,7 +23,8 @@ output_dir <- args[2]
 # Auto-detect sample prefix from RDS files
 rds_files <- list.files(input_dir, pattern = "\\.RDS$", full.names = FALSE)
 prefix <- unique(sub("\\.[^.]+\\.RDS$", "", rds_files))[1]
-sample_id <- if (length(args) >= 3) args[3] else prefix
+sample_id <- if (length(args) >= 3 && args[3] != "") args[3] else prefix
+bam_dir   <- if (length(args) >= 4 && args[4] != "") args[4] else NULL
 
 cat("Input dir :", input_dir, "\n")
 cat("Prefix    :", prefix, "\n")
@@ -166,3 +167,37 @@ cat("\n=== Conversion complete ===\n")
 cat("Output directory:", output_dir, "\n")
 cat("Files:\n")
 for (f in list.files(output_dir)) cat("  ", f, "\n")
+
+# ─── 4. BAM manifest (if bam_dir provided) ───────────────────────────────────
+if (!is.null(bam_dir)) {
+  cat("\nGenerating BAM manifest from:", bam_dir, "\n")
+  
+  # Get cell IDs from the tree
+  tree_file2 <- find_rds("medicc_tree\\.RDS$")
+  if (is.null(tree_file2)) tree_file2 <- find_rds("tree\\.RDS$")
+  tree_obj2 <- readRDS(tree_file2)
+  
+  if (inherits(tree_obj2, "dendrogram")) {
+    cell_ids <- labels(tree_obj2)
+  } else if (inherits(tree_obj2, "phylo")) {
+    cell_ids <- tree_obj2$tip.label
+  } else if (inherits(tree_obj2, "hclust")) {
+    cell_ids <- tree_obj2$labels
+  } else {
+    stop("Cannot extract cell IDs from tree of class: ", class(tree_obj2))
+  }
+  
+  # Build manifest
+  bam_manifest <- data.frame(
+    cell_id    = cell_ids,
+    bam_path   = file.path(bam_dir, paste0(cell_ids, ".bam")),
+    bai_path   = file.path(bam_dir, paste0(cell_ids, ".bam.bai")),
+    sample_id  = sample_id,
+    patient_id = sample_id,
+    stringsAsFactors = FALSE
+  )
+  
+  out_manifest <- file.path(output_dir, "bam_manifest.csv")
+  write.csv(bam_manifest, file = out_manifest, row.names = FALSE)
+  cat("  ->", nrow(bam_manifest), "cells written:", out_manifest, "\n")
+}

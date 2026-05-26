@@ -112,7 +112,7 @@ include { CONVERT_SCUNIQUE     } from './modules/local/convert_scunique/main'
 
 def validateRequiredParams() {
     def errors = []
-    if (!params.bam_manifest)    errors << "  --bam_manifest is required"
+    if (!params.bam_manifest && !params.bam_dir) errors << "  --bam_manifest or --bam_dir is required"
     if (!params.fasta)           errors << "  --fasta is required"
 
     // Either provide pre-processed files OR a scUnique results directory
@@ -184,10 +184,6 @@ workflow {
         : Channel.value([])
 
     // ── Parse input manifests ────────────────────────────────────────────────
-    // BAM manifest: cell_id,bam_path,bai_path,sample_id,patient_id
-    ch_bam_manifest = Channel
-        .fromPath(params.bam_manifest, checkIfExists: true)
-
     // Normal manifest
     ch_normal_manifest = params.normal_manifest
         ? Channel.fromPath(params.normal_manifest, checkIfExists: true)
@@ -204,6 +200,9 @@ workflow {
         ch_cell_metadata   = params.cell_metadata
             ? Channel.fromPath(params.cell_metadata, checkIfExists: true)
             : CONVERT_SCUNIQUE.out.cell_metadata
+        ch_bam_manifest    = params.bam_manifest
+            ? Channel.fromPath(params.bam_manifest, checkIfExists: true)
+            : CONVERT_SCUNIQUE.out.bam_manifest
     } else {
         // Standard mode: user provides pre-processed files
         ch_cell_metadata = Channel
@@ -212,6 +211,8 @@ workflow {
             .fromPath(params.medicc2_tree, checkIfExists: true)
         ch_scunique_events = Channel
             .fromPath(params.scunique_events, checkIfExists: true)
+        ch_bam_manifest = Channel
+            .fromPath(params.bam_manifest, checkIfExists: true)
     }
 
     ch_medicc2_events = params.medicc2_events
