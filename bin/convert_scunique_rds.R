@@ -163,16 +163,16 @@ if (!is.null(meta_file)) {
     meta_df <- meta_obj
     names(meta_df) <- tolower(names(meta_df))
     
-    # Ensure cell_id exists
-    if (!"cell_id" %in% names(meta_df)) {
-      # Try common alternatives
+    # Ensure cell_id exists and contains actual cell names
+    if ("cellname" %in% names(meta_df)) {
+      meta_df$cell_id <- meta_df$cellname
+    } else if (!"cell_id" %in% names(meta_df)) {
       for (col in c("cell", "cellid", "sample", "barcode")) {
         if (col %in% names(meta_df)) {
           meta_df$cell_id <- meta_df[[col]]
           break
         }
       }
-      # Last resort: use rownames
       if (!"cell_id" %in% names(meta_df)) {
         meta_df$cell_id <- rownames(meta_df)
       }
