@@ -3,7 +3,7 @@ process VALIDATE_MANIFESTS {
     label 'process_single'
     publishDir "${params.outdir}/validation", mode: params.publish_dir_mode
 
-    container 'ghcr.io/TODO/scclone-python:1.0.0'
+    container 'ghcr.io/shafighi/scclone-python:1.0.0'
 
     input:
         path bam_manifest

@@ -11,11 +11,11 @@
 #   docker build -f containers/Dockerfile.python -t scclone-python:1.0.0 .
 #
 # Push to GHCR:
-#   docker tag scclone-python:1.0.0 ghcr.io/<YOUR_ORG>/scclone-python:1.0.0
-#   docker push ghcr.io/<YOUR_ORG>/scclone-python:1.0.0
+#   docker tag scclone-python:1.0.0 ghcr.io/shafighi/scclone-python:1.0.0
+#   docker push ghcr.io/shafighi/scclone-python:1.0.0
 #
 # Singularity / Apptainer (on HPC, no root needed):
-#   apptainer pull scclone-python.sif docker://ghcr.io/<YOUR_ORG>/scclone-python:1.0.0
+#   apptainer pull scclone-python.sif docker://ghcr.io/shafighi/scclone-python:1.0.0
 # ─────────────────────────────────────────────────────────────────────────────
 
 FROM python:3.11-slim-bookworm

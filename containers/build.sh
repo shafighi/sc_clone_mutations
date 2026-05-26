@@ -9,11 +9,11 @@
 #   ./containers/build.sh --registry ghcr.io/myorg  # override registry
 #
 # On HPC (no Docker):
-#   apptainer pull scclone-python.sif docker://ghcr.io/YOUR_ORG/scclone-python:1.0.0
+#   apptainer pull scclone-python.sif docker://ghcr.io/shafighi/scclone-python:1.0.0
 
 set -euo pipefail
 
-REGISTRY="${REGISTRY:-ghcr.io/TODO_ORG}"  # TODO: set to your registry
+REGISTRY="${REGISTRY:-ghcr.io/shafighi}"
 VERSION="${VERSION:-1.0.0}"
 PUSH=false
 

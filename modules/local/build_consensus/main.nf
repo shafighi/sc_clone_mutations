@@ -3,7 +3,7 @@ process BUILD_CONSENSUS {
     label 'process_medium'
     publishDir "${params.outdir}/variant_analysis/consensus", mode: params.publish_dir_mode
 
-    container 'ghcr.io/TODO/scclone-python:1.0.0'
+    container 'ghcr.io/shafighi/scclone-python:1.0.0'
 
     input:
         path variant_matrix

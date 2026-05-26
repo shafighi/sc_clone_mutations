@@ -3,7 +3,7 @@ process COMPARE_VARIANTS {
     label 'process_medium'
     publishDir "${params.outdir}/variant_analysis", mode: params.publish_dir_mode
 
-    container 'ghcr.io/TODO/scclone-python:1.0.0'
+    container 'ghcr.io/shafighi/scclone-python:1.0.0'
 
     input:
         path vcf_list     // all normalized VCFs as a collected list

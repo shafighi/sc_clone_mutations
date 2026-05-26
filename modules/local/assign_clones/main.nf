@@ -3,7 +3,7 @@ process ASSIGN_CLONES {
     label 'process_low'
     publishDir "${params.outdir}/clone_definition", mode: params.publish_dir_mode
 
-    container 'ghcr.io/TODO/scclone-python:1.0.0'
+    container 'ghcr.io/shafighi/scclone-python:1.0.0'
 
     input:
         path tree_data          // pickled dendropy Tree

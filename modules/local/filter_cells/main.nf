@@ -3,7 +3,7 @@ process FILTER_CELLS {
     label 'process_single'
     publishDir "${params.outdir}/pseudobulk/cell_qc", mode: params.publish_dir_mode
 
-    container 'ghcr.io/TODO/scclone-python:1.0.0'
+    container 'ghcr.io/shafighi/scclone-python:1.0.0'
 
     input:
         path cell_clone_assignments

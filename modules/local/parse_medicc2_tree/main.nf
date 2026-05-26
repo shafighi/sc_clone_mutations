@@ -3,7 +3,7 @@ process PARSE_MEDICC2_TREE {
     label 'process_single'
     publishDir "${params.outdir}/clone_definition/tree", mode: params.publish_dir_mode
 
-    container 'ghcr.io/TODO/scclone-python:1.0.0'
+    container 'ghcr.io/shafighi/scclone-python:1.0.0'
 
     input:
         path medicc2_tree
