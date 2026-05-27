@@ -221,6 +221,9 @@ if (!is.null(bam_dir)) {
     stop("Cannot extract cell IDs from tree of class: ", class(tree_obj2))
   }
   
+  # Remove MEDICC2 outgroup/reference labels
+  cell_ids <- cell_ids[!cell_ids %in% c("diploid", "normal", "root", "reference")]
+  
   # Build manifest
   bam_manifest <- data.frame(
     cell_id    = cell_ids,
