@@ -44,8 +44,8 @@ fi
 # ─── Step 6: Run the pipeline ────────────────────────────────────────────────
 nextflow run $PIPELINE_DIR/main.nf \
     -profile singularity,slurm \
-    --scunique_dir  /mnt/scratche/slow/fmlab/darvis01/scDNAseq-workflow/results/SLX-23961_100/ \
-    --bam_dir       /mnt/nas-data/scp/group_data/sc_analysis/alined_bams/SLX-23961 \
+    --scunique_dir  /mnt/scratche/slow/fmlab/darvis01/scDNAseq-workflow/results/SLX-24491_100/ \
+    --bam_dir       /mnt/scratche/slow/fmlab/darvis01/scDNAseq-workflow-main/data/aligned/SLX-24491/ \
     --fasta         /mnt/scratche/slow/fmlab/darvis01/snakemake-illumina-alignment/resources/homo_sapiens/GRCh37_g1kp2/fasta/hsa.GRCh37_g1kp2.fa \
     --tumor_only    true \
     --outdir        /mnt/scratche/slow/fmlab/darvis01/sc_clone_mutations_results \
