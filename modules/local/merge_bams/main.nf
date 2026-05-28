@@ -1,6 +1,8 @@
 process MERGE_BAMS {
     tag "${clone_id}"
-    label 'process_medium'
+    label 'process_high'
+    errorStrategy 'retry'
+    maxRetries 2
     publishDir "${params.outdir}/pseudobulk/bams", mode: params.publish_dir_mode
 
     container 'quay.io/biocontainers/samtools:1.21--h50ea8bc_0'
