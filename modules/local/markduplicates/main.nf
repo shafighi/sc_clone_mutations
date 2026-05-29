@@ -1,6 +1,8 @@
 process MARKDUPLICATES {
     tag "${clone_id}"
-    label 'process_medium'
+    label 'process_high'
+    errorStrategy 'retry'
+    maxRetries 2
     publishDir "${params.outdir}/pseudobulk/bams", mode: params.publish_dir_mode
 
     container 'quay.io/biocontainers/picard:3.2.0--hdfd78af_0'
