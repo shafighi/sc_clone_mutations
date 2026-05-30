@@ -48,6 +48,7 @@ nextflow run $PIPELINE_DIR/main.nf \
     --bam_dir       /mnt/scratche/slow/fmlab/darvis01/scDNAseq-workflow-main/data/aligned/SLX-24491/ \
     --fasta         /mnt/scratche/slow/fmlab/darvis01/snakemake-illumina-alignment/resources/homo_sapiens/GRCh37_g1kp2/fasta/hsa.GRCh37_g1kp2.fa \
     --tumor_only    true \
+    --mark_duplicates false \
     --outdir        /mnt/scratche/slow/fmlab/darvis01/sc_clone_mutations_results \
     -work-dir       $WORK_DIR \
     -resume \
