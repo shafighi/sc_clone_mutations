@@ -3,7 +3,7 @@ process MOSDEPTH {
     label 'process_low'
     publishDir "${params.outdir}/pseudobulk/qc/mosdepth", mode: params.publish_dir_mode
 
-    container 'quay.io/biocontainers/mosdepth:0.3.9--hd299d5a_0'
+    container 'quay.io/biocontainers/mosdepth:0.3.8--hd299d5a_0'
 
     input:
         tuple val(clone_id), path(bam), path(bai)
