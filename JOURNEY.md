@@ -108,6 +108,49 @@ nextflow run $PIPELINE_DIR/main.nf \
 | 1 | Upgrade MERGE_BAMS to `process_high` | 212 BAMs need >36 GB to merge simultaneously |
 | 2 | Upgrade MARKDUPLICATES to `process_high` | Large pseudobulk BAM exceeds medium resources |
 | 3 | Skip MarkDuplicates entirely | 2B-read pseudobulk exceeds even 128 GB; scientifically inappropriate for merged single-cell data anyway |
+| 4 | Update mosdepth container tag | `0.3.9--hd299d5a_0` purged from quay.io; switched to `0.3.8--hd299d5a_0` |
+| 5 | Update all biocontainer tags | quay.io purged many old tags; queried API and updated freebayes, strelka, samtools, bcftools, multiqc |
+
+### 2026-05-30: Fix #4 — Mosdepth container tag removed from quay.io
+
+**Run: `soggy_lavoisier`** (job 52364201) — MarkDuplicates correctly skipped, but pipeline failed at `PSEUDOBULK:MOSDEPTH` with:
+
+```
+FATAL: MANIFEST_UNKNOWN: manifest unknown
+GET https://quay.io/v2/biocontainers/mosdepth/manifests/0.3.9--hd299d5a_0
+```
+
+**Root cause**: quay.io/biocontainers purged the `0.3.9--hd299d5a_0` tag. Confirmed by testing pulls on the cluster.
+
+**Fix**: Updated to `mosdepth:0.3.8--hd299d5a_0` (verified working via `singularity pull`).
+
+**Commit**: `dfd291e` — "fix: update mosdepth container tag to 0.3.8"
+
+### 2026-05-30: Fix #5 — FreeBayes (and other) container tags also purged
+
+**Run: `compassionate_lattes`** (job 52364959) — Mosdepth now works, but `MUTATION_CALLING:FREEBAYES` failed with same MANIFEST_UNKNOWN error for `freebayes:1.3.7--hbfe0e7f_2`.
+
+**Root cause**: quay.io/biocontainers has purged many older tags across multiple packages.
+
+**Fix**: Queried the quay.io API (`/api/v1/repository/biocontainers/<tool>/tag/`) to find currently available tags and updated all biocontainer references at once:
+
+| Tool | Old tag | New tag |
+|------|---------|---------|
+| mosdepth | `0.3.9--hd299d5a_0` | `0.3.8--hd299d5a_0` |
+| freebayes | `1.3.7--hbfe0e7f_2` | `1.3.10--hbefcdb2_0` |
+| strelka | `2.9.10--0` | `2.9.10--hdfd78af_2` |
+| samtools | `1.21--h50ea8bc_0` | `1.23.1--ha83d96e_0` |
+| bcftools | `1.21--h8b25389_0` | `1.23.1--ha83d96e_0` |
+| multiqc | `1.25.2--pyhdfd78af_0` | `1.35--pyhdfd78af_1` |
+
+**Commit**: `166fa22` — "fix: update all biocontainer tags to available versions"
+
+**Note**: Changing the samtools container in `merge_bams/main.nf` may invalidate the MERGE_BAMS cache (the 10h step). If Nextflow re-runs it, consider reverting just that file.
+
+**Lesson learned**: Always verify container tags exist before running. Use:
+```bash
+curl -s "https://quay.io/api/v1/repository/biocontainers/<tool>/tag/?limit=20" | python3 -c "import sys,json; [print(t['name']) for t in json.load(sys.stdin)['tags']]"
+```
 
 ---
 
