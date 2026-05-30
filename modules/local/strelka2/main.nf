@@ -5,7 +5,7 @@ process STRELKA2_SOMATIC {
 
     // Strelka2 Docker image — use the official Illumina release
     // Note: Strelka2 is free for research use. Source: https://github.com/Illumina/strelka
-    container 'quay.io/biocontainers/strelka:2.9.10--0'
+    container 'quay.io/biocontainers/strelka:2.9.10--hdfd78af_2'
 
     input:
         tuple val(clone_id), path(tumor_bam), path(tumor_bai), path(normal_bam), path(normal_bai)

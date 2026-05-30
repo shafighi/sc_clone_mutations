@@ -4,7 +4,7 @@ process FREEBAYES {
     publishDir "${params.outdir}/variant_calling/freebayes", mode: params.publish_dir_mode
 
     // FreeBayes: MIT license, fully open-source
-    container 'quay.io/biocontainers/freebayes:1.3.7--hbfe0e7f_2'
+    container 'quay.io/biocontainers/freebayes:1.3.10--hbefcdb2_0'
 
     input:
         tuple val(clone_id), path(bam), path(bai)

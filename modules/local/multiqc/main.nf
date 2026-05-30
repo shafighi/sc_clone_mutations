@@ -3,7 +3,7 @@ process MULTIQC {
     label 'process_single'
     publishDir "${params.outdir}/reports", mode: params.publish_dir_mode
 
-    container 'quay.io/biocontainers/multiqc:1.25.2--pyhdfd78af_0'
+    container 'quay.io/biocontainers/multiqc:1.35--pyhdfd78af_1'
 
     input:
         path qc_files

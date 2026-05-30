@@ -3,7 +3,7 @@ process NORMALIZE_VCF {
     label 'process_low'
     publishDir "${params.outdir}/variant_calling/${caller}/normalized", mode: params.publish_dir_mode
 
-    container 'quay.io/biocontainers/bcftools:1.21--h8b25389_0'
+    container 'quay.io/biocontainers/bcftools:1.23.1--ha83d96e_0'
 
     input:
         tuple val(clone_id), val(caller), path(vcf), path(tbi)

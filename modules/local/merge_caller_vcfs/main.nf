@@ -3,7 +3,7 @@ process MERGE_CALLER_VCFS {
     label 'process_low'
     publishDir "${params.outdir}/variant_analysis/merged_per_clone", mode: params.publish_dir_mode
 
-    container 'quay.io/biocontainers/bcftools:1.21--h8b25389_0'
+    container 'quay.io/biocontainers/bcftools:1.23.1--ha83d96e_0'
 
     input:
         tuple val(clone_id), val(callers), path(vcfs), path(tbis)

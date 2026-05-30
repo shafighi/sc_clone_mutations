@@ -5,7 +5,7 @@ process MERGE_BAMS {
     maxRetries 2
     publishDir "${params.outdir}/pseudobulk/bams", mode: params.publish_dir_mode
 
-    container 'quay.io/biocontainers/samtools:1.21--h50ea8bc_0'
+    container 'quay.io/biocontainers/samtools:1.23.1--ha83d96e_0'
 
     input:
         tuple val(clone_id), path(bams), path(bais)
