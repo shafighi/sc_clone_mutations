@@ -51,5 +51,4 @@ nextflow run $PIPELINE_DIR/main.nf \
     --mark_duplicates false \
     --outdir        /mnt/scratche/slow/fmlab/darvis01/sc_clone_mutations_results \
     -work-dir       $WORK_DIR \
-    -resume \
     -with-report    /mnt/scratche/slow/fmlab/darvis01/sc_clone_mutations_results/pipeline_info/report.html
