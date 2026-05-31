@@ -59,6 +59,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from utils.tree_utils import (
     build_node_table,
     cut_tree_at_nodes,
+    cut_tree_into_clones,
     get_clade_leaves,
     get_leaf_names,
     get_node_by_label,
@@ -193,27 +194,16 @@ def strategy_internal_node(
         f"min_cells={min_cells}"
     )
 
-    cut_nodes = select_internal_nodes_by_branch_length(
-        tree, min_branch_length, min_cells
+    clones = cut_tree_into_clones(
+        tree, min_cells=min_cells, min_branch_length=min_branch_length
     )
-    log.info(f"Selected {len(cut_nodes)} internal nodes as clone roots")
+    log.info(f"Partitioned tree into {len(clones)} clade(s)")
 
-    if max_clones and len(cut_nodes) > max_clones:
-        # Keep the nodes with the longest branches (most distinct clades)
-        lengths = {}
-        for label in cut_nodes:
-            node = get_node_by_label(tree, label)
-            lengths[label] = node.edge_length or 0.0
-        cut_nodes = sorted(cut_nodes, key=lambda l: -lengths[l])[:max_clones]
-        log.info(f"Capped to {max_clones} clones by branch length")
+    if max_clones and len(clones) > max_clones:
+        clones = _merge_to_n(clones, max_clones)
+        log.info(f"Capped to {max_clones} clones")
 
-    if not cut_nodes:
-        log.warning(
-            "No internal nodes met criteria — assigning all cells to a single clone"
-        )
-        return {"clone_1": get_leaf_names(tree)}
-
-    return cut_tree_at_nodes(tree, cut_nodes)
+    return clones
 
 
 def strategy_distance(

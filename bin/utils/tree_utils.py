@@ -158,6 +158,81 @@ def build_edge_table(tree: dendropy.Tree) -> pd.DataFrame:
 
 # ─── Clone-cut helpers ───────────────────────────────────────────────────────
 
+def cut_tree_into_clones(
+    tree: dendropy.Tree,
+    min_cells: int,
+    min_branch_length: float = 0.0,
+) -> Dict[str, List[str]]:
+    """
+    Partition a tree into clones by recursively cutting the longest qualifying
+    branch, but only where BOTH resulting parts contain at least *min_cells*
+    leaves. This guarantees every emitted clone is adequately sized, so small
+    fragments never collapse back into a single clone.
+
+    A branch qualifies if its length is >= *min_branch_length*. When
+    *min_branch_length* <= 0 (or None), an automatic threshold of
+    mean + 1 standard deviation of internal edge lengths is used, so only the
+    longest branches (clear clone boundaries) are cut.
+
+    Returns {clade_label: [cell_id, ...]}.
+    """
+    internal_edges = [
+        node.edge_length or 0.0
+        for node in tree.preorder_node_iter()
+        if not node.is_leaf() and node.parent_node is not None
+    ]
+    threshold = min_branch_length
+    if threshold is None or threshold <= 0.0:
+        if internal_edges:
+            arr = np.array(internal_edges, dtype=float)
+            threshold = float(arr.mean() + arr.std())
+        else:
+            threshold = 0.0
+
+    # Precompute the leaf set under every node (postorder, so children first).
+    node_clade: Dict[dendropy.Node, frozenset] = {}
+    for node in tree.postorder_node_iter():
+        if node.is_leaf():
+            node_clade[node] = frozenset([node.taxon.label])
+        else:
+            s: Set[str] = set()
+            for ch in node.child_nodes():
+                s |= node_clade[ch]
+            node_clade[node] = frozenset(s)
+
+    # Internal nodes whose incoming edge is long enough to be a cut candidate.
+    candidates = [
+        n for n in tree.preorder_node_iter()
+        if not n.is_leaf() and n.parent_node is not None
+        and (n.edge_length or 0.0) >= threshold
+    ]
+
+    clones: List[Set[str]] = []
+
+    def partition(leafset: Set[str]) -> None:
+        if len(leafset) < 2 * min_cells:
+            clones.append(set(leafset))
+            return
+        best_node = None
+        best_el = -1.0
+        best_lower: Optional[Set[str]] = None
+        for node in candidates:
+            lower = node_clade[node] & leafset
+            li = len(lower)
+            if li >= min_cells and (len(leafset) - li) >= min_cells:
+                el = node.edge_length or 0.0
+                if el > best_el:
+                    best_el, best_node, best_lower = el, node, set(lower)
+        if best_node is None:
+            clones.append(set(leafset))
+            return
+        partition(best_lower)
+        partition(set(leafset) - best_lower)
+
+    partition(set(get_leaf_names(tree)))
+    return {f"clade_{i+1}": sorted(c) for i, c in enumerate(clones)}
+
+
 def cut_tree_at_nodes(
     tree: dendropy.Tree,
     cut_nodes: List[str],
