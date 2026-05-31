@@ -172,10 +172,13 @@ def cut_tree_at_nodes(
     clones: Dict[str, List[str]] = {}
     assigned: Set[str] = set()
 
-    for node_label in cut_nodes:
-        node = get_node_by_label(tree, node_label)
-        if node is None:
-            continue
+    # Resolve nodes and sort by clade size ascending so the deepest (most
+    # specific) selected clades claim their cells before their ancestors.
+    resolved = [(lbl, get_node_by_label(tree, lbl)) for lbl in cut_nodes]
+    resolved = [(lbl, n) for lbl, n in resolved if n is not None]
+    resolved.sort(key=lambda x: count_clade_leaves(x[1]))
+
+    for node_label, node in resolved:
         leaves = get_clade_leaves(node)
         # Don't double-assign already-claimed cells
         new_leaves = [l for l in leaves if l not in assigned]
@@ -198,18 +201,35 @@ def select_internal_nodes_by_branch_length(
     min_cells: int,
 ) -> List[str]:
     """
-    Select internal nodes whose incoming edge is longer than *min_branch_length*
-    and whose subtree contains at least *min_cells* leaves.
-    These nodes define the top of each clone clade.
+    Select internal nodes whose incoming edge marks a clone boundary: the edge
+    is long (many accumulated copy-number changes) and the subtree holds at
+    least *min_cells* leaves. The root is never selected (it has no incoming
+    edge), which prevents the whole tree collapsing into a single clone.
+
+    If *min_branch_length* <= 0 (or None), an automatic threshold is derived
+    from the distribution of internal edge lengths (mean + 1 standard
+    deviation), so only the longest branches — the clearest clone boundaries —
+    are cut.
     """
+    internal_edges = [
+        node.edge_length or 0.0
+        for node in tree.preorder_node_iter()
+        if not node.is_leaf() and node.parent_node is not None
+    ]
+
+    threshold = min_branch_length
+    if threshold is None or threshold <= 0.0:
+        if internal_edges:
+            arr = np.array(internal_edges, dtype=float)
+            threshold = float(arr.mean() + arr.std())
+        else:
+            threshold = 0.0
+
     selected = []
-    # Use a top-down approach: once a node is selected, don't descend into
-    # its children (children are already within the clone).
     for node in tree.preorder_node_iter():
-        if node.is_leaf():
-            continue
+        if node.is_leaf() or node.parent_node is None:
+            continue  # skip leaves and the root
         el = node.edge_length or 0.0
-        nc = count_clade_leaves(node)
-        if el >= min_branch_length and nc >= min_cells:
+        if el > threshold and count_clade_leaves(node) >= min_cells:
             selected.append(node.label or (node.taxon.label if node.taxon else ""))
     return selected
