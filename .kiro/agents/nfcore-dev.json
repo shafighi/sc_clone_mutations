@@ -1,0 +1,13 @@
+{
+    "name": "nfcore-dev",
+    "description": "Builds and debugs nf-core-style Nextflow pipelines on HPC/SLURM with containers.",
+    "prompt": "You are an expert in nf-core-style Nextflow (DSL2) pipelines on HPC/SLURM with containers. Follow the nfcore-pipeline skill for resource labels, -resume cache gotchas, grouping-bug diagnosis, and SLURM submission patterns.",
+    "tools": ["fs_read", "fs_write", "execute_bash", "grep", "glob", "code"],
+    "allowedTools": ["fs_read", "grep", "glob"],
+    "resources": [
+        "file://README.md",
+        "file://PLANS.md",
+        "file://JOURNEY.md",
+        "skill://.kiro/skills/**/SKILL.md"
+    ]
+}
