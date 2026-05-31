@@ -30,7 +30,7 @@ export NXF_SINGULARITY_CACHEDIR=/mnt/scratche/slow/fmlab/darvis01/singularity_ca
 mkdir -p $NXF_SINGULARITY_CACHEDIR
 
 # ─── Step 4: Set work directory on scratch ────────────────────────────────────
-WORK_DIR=/mnt/scratche/slow/fmlab/darvis01/nf_work_v2
+WORK_DIR=/mnt/scratche/slow/fmlab/darvis01/nf_work_v3
 mkdir -p $WORK_DIR
 
 # ─── Step 5: Clone/update the pipeline ───────────────────────────────────────
