@@ -43,6 +43,7 @@ fi
 
 # ─── Step 6: Run the pipeline ────────────────────────────────────────────────
 nextflow run $PIPELINE_DIR/main.nf \
+    -resume \
     -profile singularity,slurm \
     --scunique_dir  /mnt/scratche/slow/fmlab/darvis01/scDNAseq-workflow/results/SLX-24491_100/ \
     --bam_dir       /mnt/scratche/slow/fmlab/darvis01/scDNAseq-workflow-main/data/aligned/SLX-24491/ \
