@@ -3,7 +3,7 @@ process OCTOPUS {
     label 'process_high'
     publishDir "${params.outdir}/variant_calling/octopus", mode: params.publish_dir_mode
 
-    container 'quay.io/biocontainers/octopus:0.7.4--ha3c1580_2'
+    container 'quay.io/biocontainers/octopus:0.6.3b--h40a150c_3'
 
     input:
         tuple val(clone_id), path(tumor_cram), path(tumor_crai), path(normal_cram), path(normal_crai)
