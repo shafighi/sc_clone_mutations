@@ -23,9 +23,15 @@ process MERGE_BAMS {
     # Input BAMs are already coordinate-sorted; merge preserves sort order.
     # Output as CRAM for ~75% size reduction vs BAM.
     if [ "${n_bams}" -eq 1 ]; then
-        samtools view -@ ${task.cpus} -C -T ${fasta} -o ${clone_id}.merged.cram ${bam_list}
+        samtools view -@ ${task.cpus} -C -T ${fasta} \
+            --output-fmt-option version=3.0 \
+            -o ${clone_id}.merged.cram ${bam_list}
     else
-        samtools merge -@ ${task.cpus} -l 6 --output-fmt CRAM --reference ${fasta} -f ${clone_id}.merged.cram ${bam_list}
+        samtools merge -@ ${task.cpus} -l 6 \
+            --output-fmt CRAM \
+            --output-fmt-option version=3.0 \
+            --reference ${fasta} \
+            -f ${clone_id}.merged.cram ${bam_list}
     fi
 
     samtools index ${clone_id}.merged.cram
