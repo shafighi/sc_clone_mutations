@@ -14,6 +14,7 @@ process SAMTOOLS_FLAGSTAT {
 
     script:
     """
-    samtools flagstat --reference ${fasta} -@ ${task.cpus} ${cram} > ${clone_id}.flagstat.txt
+    export REF_PATH=${fasta}
+    samtools flagstat -@ ${task.cpus} ${cram} > ${clone_id}.flagstat.txt
     """
 }
