@@ -50,6 +50,8 @@ nextflow run $PIPELINE_DIR/main.nf \
     --fasta         /mnt/scratche/slow/fmlab/darvis01/snakemake-illumina-alignment/resources/homo_sapiens/GRCh37_g1kp2/fasta/hsa.GRCh37_g1kp2.fa \
     --tumor_only    true \
     --mark_duplicates false \
+    --callers       mutect2 \
+    --intervals     $PIPELINE_DIR/assets/intervals/GRCh37_chr1.bed \
     --outdir        /mnt/scratche/slow/fmlab/darvis01/sc_clone_mutations_results \
     -work-dir       $WORK_DIR \
     -with-report    /mnt/scratche/slow/fmlab/darvis01/sc_clone_mutations_results/pipeline_info/report.html
