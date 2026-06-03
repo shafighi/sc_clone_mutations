@@ -1,6 +1,7 @@
 process MERGE_BAMS {
     tag "${clone_id}"
-    label 'process_high'
+    label 'process_medium'
+    label 'process_long'
     errorStrategy 'retry'
     maxRetries 2
     publishDir "${params.outdir}/pseudobulk/bams", mode: params.publish_dir_mode
@@ -17,13 +18,11 @@ process MERGE_BAMS {
     def bam_list = bams instanceof List ? bams.join(' ') : bams
     def n_bams   = bams instanceof List ? bams.size() : 1
     """
-    # Add clone-aware read-group tag to each input BAM, then merge
-    # If only one BAM, skip merge and just sort+index
+    # Input BAMs are already coordinate-sorted; merge preserves sort order
     if [ "${n_bams}" -eq 1 ]; then
-        samtools sort -@ ${task.cpus} -o ${clone_id}.merged.bam ${bam_list}
+        cp ${bam_list} ${clone_id}.merged.bam
     else
-        samtools merge -@ ${task.cpus} -f - ${bam_list} \\
-        | samtools sort -@ ${task.cpus} -o ${clone_id}.merged.bam
+        samtools merge -@ ${task.cpus} -f ${clone_id}.merged.bam ${bam_list}
     fi
 
     samtools index ${clone_id}.merged.bam
