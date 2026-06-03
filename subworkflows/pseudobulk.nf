@@ -45,13 +45,13 @@ workflow PSEUDOBULK {
             }
             .groupTuple(by: 0)
 
-        // Step 3: Merge BAMs per clone
-        MERGE_BAMS(ch_clone_bam_groups)
+        // Step 3: Merge BAMs per clone → CRAM output
+        MERGE_BAMS(ch_clone_bam_groups, ch_fasta, ch_fai)
 
         // Step 4: Mark duplicates (picard MarkDuplicates)
         //         Skip if params.mark_duplicates == false
         if (params.mark_duplicates) {
-            MARKDUPLICATES(MERGE_BAMS.out.merged_bam)
+            MARKDUPLICATES(MERGE_BAMS.out.merged_bam, ch_fasta, ch_fai)
             ch_processed_bams = MARKDUPLICATES.out.bam
         } else {
             ch_processed_bams = MERGE_BAMS.out.merged_bam
@@ -59,7 +59,7 @@ workflow PSEUDOBULK {
 
         // Step 5: Coverage QC
         MOSDEPTH(ch_processed_bams, ch_fasta, ch_fai)
-        SAMTOOLS_FLAGSTAT(ch_processed_bams)
+        SAMTOOLS_FLAGSTAT(ch_processed_bams, ch_fasta)
 
         // Collect all QC for MultiQC
         ch_qc_reports = MOSDEPTH.out.summary

@@ -2,9 +2,9 @@
 ================================================================================
   subworkflows/mutation_calling.nf
 
-  Runs somatic mutation callers on each clone pseudobulk BAM:
+  Runs somatic mutation callers on each clone pseudobulk CRAM:
     - Mutect2  (GATK4)
-    - Strelka2
+    - Octopus  (haplotype-aware, replaces Strelka2)
     - FreeBayes
 
   Supports:
@@ -17,10 +17,10 @@
 
 include { MUTECT2             } from '../modules/local/mutect2/main'
 include { FILTER_MUTECT2      } from '../modules/local/filter_mutect2/main'
-include { STRELKA2_SOMATIC    } from '../modules/local/strelka2/main'
+include { OCTOPUS             } from '../modules/local/octopus/main'
 include { FREEBAYES           } from '../modules/local/freebayes/main'
 include { NORMALIZE_VCF as NORMALIZE_MUTECT2_VCF   } from '../modules/local/normalize_vcf/main'
-include { NORMALIZE_VCF as NORMALIZE_STRELKA2_VCF  } from '../modules/local/normalize_vcf/main'
+include { NORMALIZE_VCF as NORMALIZE_OCTOPUS_VCF   } from '../modules/local/normalize_vcf/main'
 include { NORMALIZE_VCF as NORMALIZE_FREEBAYES_VCF } from '../modules/local/normalize_vcf/main'
 include { MERGE_CALLER_VCFS   } from '../modules/local/merge_caller_vcfs/main'
 
@@ -92,19 +92,19 @@ workflow MUTATION_CALLING {
             ch_vcfs = ch_vcfs.mix(NORMALIZE_MUTECT2_VCF.out.normalized_vcf)
         }
 
-        // ── Strelka2 ─────────────────────────────────────────────────────────
-        if ('strelka2' in callers) {
-            STRELKA2_SOMATIC(
+        // ── Octopus ───────────────────────────────────────────────────────────
+        if ('octopus' in callers) {
+            OCTOPUS(
                 ch_tumor_normal_pairs,
                 ch_fasta,
                 ch_fai,
                 ch_intervals
             )
-            NORMALIZE_STRELKA2_VCF(
-                STRELKA2_SOMATIC.out.vcf.map { id, vcf, tbi -> tuple(id, 'strelka2', vcf, tbi) },
+            NORMALIZE_OCTOPUS_VCF(
+                OCTOPUS.out.vcf.map { id, vcf, tbi -> tuple(id, 'octopus', vcf, tbi) },
                 ch_fasta
             )
-            ch_vcfs = ch_vcfs.mix(NORMALIZE_STRELKA2_VCF.out.normalized_vcf)
+            ch_vcfs = ch_vcfs.mix(NORMALIZE_OCTOPUS_VCF.out.normalized_vcf)
         }
 
         // ── FreeBayes ────────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ workflow MUTATION_CALLING {
         // Collect caller-level statistics
         ch_caller_stats = Channel.empty()
         if ('mutect2'   in callers) ch_caller_stats = ch_caller_stats.mix(MUTECT2.out.stats)
-        if ('strelka2'  in callers) ch_caller_stats = ch_caller_stats.mix(STRELKA2_SOMATIC.out.stats)
+        if ('octopus'   in callers) ch_caller_stats = ch_caller_stats.mix(OCTOPUS.out.stats)
         if ('freebayes' in callers) ch_caller_stats = ch_caller_stats.mix(FREEBAYES.out.stats)
 
     emit:

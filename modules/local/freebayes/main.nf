@@ -7,7 +7,7 @@ process FREEBAYES {
     container 'quay.io/biocontainers/freebayes:1.3.10--hbefcdb2_0'
 
     input:
-        tuple val(clone_id), path(bam), path(bai)
+        tuple val(clone_id), path(cram), path(crai)
         path fasta
         path fai
         path intervals  // may be []
@@ -21,7 +21,7 @@ process FREEBAYES {
     """
     freebayes \\
         --fasta-reference ${fasta} \\
-        --bam ${bam} \\
+        --bam ${cram} \\
         ${regions_arg} \\
         ${params.freebayes_extra_args} \\
     | bcftools view -f 'PASS,.' \\

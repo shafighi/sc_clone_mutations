@@ -6,7 +6,7 @@ process MUTECT2 {
     container 'broadinstitute/gatk:4.6.0.0'
 
     input:
-        tuple val(clone_id), path(tumor_bam), path(tumor_bai), path(normal_bam), path(normal_bai)
+        tuple val(clone_id), path(tumor_cram), path(tumor_crai), path(normal_cram), path(normal_crai)
         path fasta
         path fai
         path dict
@@ -22,14 +22,14 @@ process MUTECT2 {
         path "${clone_id}.f1r2.tar.gz",          emit: f1r2     // for orientation bias model
 
     script:
-    def normal_arg     = (normal_bam && normal_bam.name != 'NO_FILE') ? "-I ${normal_bam} --normal-sample ${normal_bam.baseName}" : ""
+    def normal_arg     = (normal_cram && normal_cram.name != 'NO_FILE') ? "-I ${normal_cram} --normal-sample ${normal_cram.baseName}" : ""
     def germline_arg   = (germline_resource && germline_resource.name != 'NO_FILE') ? "--germline-resource ${germline_resource}" : ""
     def pon_arg        = (pon && pon.name != 'NO_FILE') ? "--panel-of-normals ${pon}" : ""
     def intervals_arg  = (intervals && intervals.name != 'NO_FILE') ? "-L ${intervals}" : ""
     """
     gatk Mutect2 \\
         -R ${fasta} \\
-        -I ${tumor_bam} \\
+        -I ${tumor_cram} \\
         ${normal_arg} \\
         ${germline_arg} \\
         ${pon_arg} \\

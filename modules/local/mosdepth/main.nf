@@ -6,7 +6,7 @@ process MOSDEPTH {
     container 'quay.io/biocontainers/mosdepth:0.3.8--hd299d5a_0'
 
     input:
-        tuple val(clone_id), path(bam), path(bai)
+        tuple val(clone_id), path(cram), path(crai)
         path fasta
         path fai
 
@@ -21,8 +21,9 @@ process MOSDEPTH {
     mosdepth \\
         --threads ${task.cpus} \\
         --no-abbrev \\
+        --fasta ${fasta} \\
         ${intervals_arg} \\
         ${clone_id} \\
-        ${bam}
+        ${cram}
     """
 }

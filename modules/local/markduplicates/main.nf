@@ -8,27 +8,26 @@ process MARKDUPLICATES {
     container 'quay.io/biocontainers/picard:3.2.0--hdfd78af_0'
 
     input:
-        tuple val(clone_id), path(bam), path(bai)
+        tuple val(clone_id), path(cram), path(crai)
+        path fasta
+        path fai
 
     output:
-        tuple val(clone_id), path("${clone_id}.markdup.bam"), path("${clone_id}.markdup.bam.bai"), emit: bam
+        tuple val(clone_id), path("${clone_id}.markdup.cram"), path("${clone_id}.markdup.crai"), emit: bam
         path "${clone_id}.markdup_metrics.txt", emit: metrics
 
     script:
-    // NOTE: For pseudobulk somatic calling, consider whether to REMOVE duplicates
-    // (better sensitivity) or keep them. Default here: mark but do not remove,
-    // which lets callers decide. Set REMOVE_DUPLICATES=true to remove them.
     """
     picard MarkDuplicates \\
         -Xmx${task.memory.toGiga()}g \\
-        INPUT=${bam} \\
-        OUTPUT=${clone_id}.markdup.bam \\
+        INPUT=${cram} \\
+        OUTPUT=${clone_id}.markdup.cram \\
         METRICS_FILE=${clone_id}.markdup_metrics.txt \\
+        REFERENCE_SEQUENCE=${fasta} \\
         REMOVE_DUPLICATES=false \\
         ASSUME_SORTED=true \\
         VALIDATION_STRINGENCY=LENIENT \\
+        COMPRESSION_LEVEL=6 \\
         CREATE_INDEX=true
-
-    mv ${clone_id}.markdup.bai ${clone_id}.markdup.bam.bai
     """
 }

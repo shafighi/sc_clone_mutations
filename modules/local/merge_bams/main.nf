@@ -10,24 +10,26 @@ process MERGE_BAMS {
 
     input:
         tuple val(clone_id), path(bams), path(bais)
+        path fasta
+        path fai
 
     output:
-        tuple val(clone_id), path("${clone_id}.merged.bam"), path("${clone_id}.merged.bam.bai"), emit: merged_bam
+        tuple val(clone_id), path("${clone_id}.merged.cram"), path("${clone_id}.merged.cram.crai"), emit: merged_bam
 
     script:
     def bam_list = bams instanceof List ? bams.join(' ') : bams
     def n_bams   = bams instanceof List ? bams.size() : 1
     """
-    # Input BAMs are already coordinate-sorted; merge preserves sort order
+    # Input BAMs are already coordinate-sorted; merge preserves sort order.
+    # Output as CRAM for ~75% size reduction vs BAM.
     if [ "${n_bams}" -eq 1 ]; then
-        cp ${bam_list} ${clone_id}.merged.bam
+        samtools view -@ ${task.cpus} -C -T ${fasta} -o ${clone_id}.merged.cram ${bam_list}
     else
-        samtools merge -@ ${task.cpus} -f ${clone_id}.merged.bam ${bam_list}
+        samtools merge -@ ${task.cpus} -l 6 --output-fmt CRAM --reference ${fasta} -f ${clone_id}.merged.cram ${bam_list}
     fi
 
-    samtools index ${clone_id}.merged.bam
+    samtools index ${clone_id}.merged.cram
 
-    # Verify output
-    samtools quickcheck ${clone_id}.merged.bam
+    samtools quickcheck ${clone_id}.merged.cram
     """
 }

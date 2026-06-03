@@ -16,7 +16,7 @@
     A. Input validation
     B. Clone assignment (tree-based / event-based / hybrid)
     C. Pseudobulk BAM construction per clone
-    D. Somatic mutation calling (Mutect2 + Strelka2 + FreeBayes)
+    D. Somatic mutation calling (Mutect2 + Octopus + FreeBayes)
     E. VCF normalization, filtering, and cross-clone comparison
     F. Consensus callset and reporting
 ================================================================================
@@ -60,7 +60,7 @@ def helpMessage() {
       --small_clone_action [drop | merge | flag]  default: merge
 
     Callers:
-      --callers            Comma-separated list: mutect2,strelka2,freebayes
+      --callers            Comma-separated list: mutect2,octopus,freebayes
       --tumor_only         Run callers without matched normal
 
     Outputs:
