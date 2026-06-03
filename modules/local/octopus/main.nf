@@ -17,15 +17,14 @@ process OCTOPUS {
 
     script:
     def has_normal    = normal_cram && normal_cram.name != 'NO_FILE'
-    def normal_arg    = has_normal ? "--normal-sample ${normal_cram.baseName} --reads ${normal_cram}" : ""
+    def normal_arg    = has_normal ? "--reads ${normal_cram} --normal-sample ${normal_cram.baseName}" : ""
     def intervals_arg = (intervals && intervals.name != 'NO_FILE') ? "--regions-file ${intervals}" : ""
-    def caller        = has_normal ? "cancer" : "cancer"  // cancer caller works tumor-only too
     """
     octopus \\
         --reference ${fasta} \\
         --reads ${tumor_cram} \\
         ${normal_arg} \\
-        --caller ${caller} \\
+        --caller cancer \\
         ${intervals_arg} \\
         --threads ${task.cpus} \\
         --output ${clone_id}.octopus.vcf.gz \\
