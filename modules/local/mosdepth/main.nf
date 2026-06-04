@@ -18,10 +18,10 @@ process MOSDEPTH {
     script:
     def intervals_arg = params.intervals ? "--by ${params.intervals}" : "--by 500"
     """
-    export REF_PATH=${fasta}
     mosdepth \\
         --threads ${task.cpus} \\
         --no-abbrev \\
+        --fasta ${fasta} \\
         ${intervals_arg} \\
         ${clone_id} \\
         ${cram}
