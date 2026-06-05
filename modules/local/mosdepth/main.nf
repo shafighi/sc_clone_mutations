@@ -20,7 +20,6 @@ process MOSDEPTH {
     """
     mosdepth \\
         --threads ${task.cpus} \\
-        --no-abbrev \\
         --fasta ${fasta} \\
         ${intervals_arg} \\
         ${clone_id} \\
