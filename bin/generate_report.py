@@ -85,7 +85,17 @@ def df_to_html(df: pd.DataFrame, max_rows: int = 50) -> str:
 def df_to_md(df: pd.DataFrame, max_rows: int = 50) -> str:
     if df.empty:
         return "_No data available._\n"
-    return df.head(max_rows).to_markdown(index=False) + "\n"
+    # Build the table by hand rather than via DataFrame.to_markdown(), which
+    # requires the optional 'tabulate' dependency that may be absent.
+    sub  = df.head(max_rows)
+    cols = [str(c) for c in sub.columns]
+    header = "| " + " | ".join(cols) + " |"
+    sep    = "| " + " | ".join("---" for _ in cols) + " |"
+    rows   = [
+        "| " + " | ".join("" if pd.isna(v) else str(v) for v in row) + " |"
+        for row in sub.itertuples(index=False, name=None)
+    ]
+    return "\n".join([header, sep, *rows]) + "\n"
 
 
 def build_markdown(

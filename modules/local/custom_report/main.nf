@@ -17,7 +17,7 @@ process CUSTOM_REPORT {
 
     script:
     """
-    generate_report.py \\
+    python3 ${projectDir}/bin/generate_report.py \\
         --validation_report  ${validation_report} \\
         --clone_summary      ${clone_summary} \\
         --consensus_table    ${consensus_table} \\
