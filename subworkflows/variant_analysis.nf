@@ -30,7 +30,7 @@ workflow VARIANT_ANALYSIS {
 
         // Step 1: Per-clone caller concordance and cross-clone comparison
         COMPARE_VARIANTS(
-            ch_vcfs_per_clone.collect(),
+            ch_vcfs_per_clone.map { clone_id, caller, vcf, tbi -> vcf }.collect(),
             ch_clone_summary
         )
 
