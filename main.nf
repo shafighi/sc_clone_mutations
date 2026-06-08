@@ -107,6 +107,7 @@ include { MUTATION_CALLING     } from './subworkflows/mutation_calling'
 include { VARIANT_ANALYSIS     } from './subworkflows/variant_analysis'
 include { REPORTING            } from './subworkflows/reporting'
 include { CONVERT_SCUNIQUE     } from './modules/local/convert_scunique/main'
+include { MUTATIONAL_SIGNATURES } from './modules/local/mutational_signatures/main'
 
 // ─── Parameter validation ─────────────────────────────────────────────────────
 
@@ -268,6 +269,20 @@ workflow {
         ch_fasta,
         ch_fai
     )
+
+    // ── Stage E2: Mutational signatures (opt-in: --run_signatures) ───────────
+    // Per-clone SBS96 refit to COSMIC, with an audit that can return
+    // 'insufficient_evidence'. Consumes the normalized per-caller VCFs; only the
+    // configured caller is used so there is one fit per clone. Terminal stage —
+    // does not affect any existing process hash.
+    if (params.run_signatures) {
+        if (!params.cosmic_signatures)
+            error "ERROR: --run_signatures requires --cosmic_signatures (COSMIC SBS reference). See assets/cosmic/README.md"
+        ch_cosmic = Channel.value(file(params.cosmic_signatures, checkIfExists: true))
+        ch_sig_vcfs = MUTATION_CALLING.out.vcfs_per_clone
+            .filter { clone_id, caller, vcf, tbi -> caller == params.sig_caller }
+        MUTATIONAL_SIGNATURES(ch_sig_vcfs, ch_fasta, ch_fai, ch_cosmic)
+    }
 
     // ── Stage F: Reporting ────────────────────────────────────────────────────
     REPORTING(
