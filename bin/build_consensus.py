@@ -77,21 +77,35 @@ def select_consensus_variants(
     The matrix columns are a MultiIndex (clone_id, caller).
     """
     if not hasattr(matrix_df.columns, "levels"):
-        # Flat columns — try to reconstruct MultiIndex from "clone_id.caller" names
-        tuples = [tuple(c.split(".", 1)) for c in matrix_df.columns]
+        # Flat columns written as "clone_id::caller" by compare_variants.
+        tuples = []
+        for c in matrix_df.columns:
+            parts = str(c).split("::", 1)
+            tuples.append((parts[0], parts[1]) if len(parts) == 2 else (parts[0], "unknown"))
         matrix_df.columns = pd.MultiIndex.from_tuples(tuples, names=["clone_id", "caller"])
 
-    # For each variant, count the max number of callers supporting it across clones
-    caller_counts_per_clone = (
-        matrix_df.groupby(level="clone_id", axis=1).sum()
-    )
+    # A consensus across callers is only meaningful up to the number of callers
+    # actually present. With a single caller, requiring 2 would drop everything;
+    # clamp so single-caller runs yield that caller's calls as the consensus.
+    n_callers = matrix_df.columns.get_level_values("caller").nunique()
+    effective_min = min(min_callers, n_callers) if n_callers else min_callers
+    if effective_min < min_callers:
+        log.warning(
+            f"Only {n_callers} caller(s) present; lowering consensus requirement "
+            f"from {min_callers} to {effective_min}"
+        )
+
+    # For each variant, count the max number of callers supporting it across
+    # clones. Transpose-then-groupby works on both pandas 2.x and 3.x
+    # (groupby(axis=1) is removed in pandas 3).
+    caller_counts_per_clone = matrix_df.T.groupby(level="clone_id").sum().T
     max_callers_any_clone = caller_counts_per_clone.max(axis=1)
-    consensus_mask = max_callers_any_clone >= min_callers
+    consensus_mask = max_callers_any_clone >= effective_min
 
     consensus = matrix_df[consensus_mask]
     log.info(
-        f"Consensus: {consensus_mask.sum()}/{len(matrix_df)} variants "
-        f"supported by ≥{min_callers} callers"
+        f"Consensus: {int(consensus_mask.sum())}/{len(matrix_df)} variants "
+        f"supported by >= {effective_min} caller(s)"
     )
     return consensus
 
@@ -161,9 +175,12 @@ def write_minimal_vcf(
             f"{row['chrom']}\t{row['pos']}\t.\t{row['ref']}\t{row['alt']}\t.\tPASS\t{info}"
         )
 
-    with gzip.open(out_path, "wt") as fh:
+    # Write plain text; the Nextflow process bgzip's + tabix-indexes it.
+    # (gzip != bgzip, and tabix requires BGZF.)
+    with open(out_path, "wt") as fh:
         fh.write("\n".join(header_lines) + "\n")
-        fh.write("\n".join(records) + "\n")
+        if records:
+            fh.write("\n".join(records) + "\n")
 
 
 def main() -> None:
@@ -173,7 +190,7 @@ def main() -> None:
     if matrix_df.empty:
         log.warning("Variant matrix is empty — writing empty outputs")
         pd.DataFrame().to_csv(args.out_table, index=False)
-        with gzip.open(args.out_vcf, "wt") as fh:
+        with open(args.out_vcf, "wt") as fh:
             fh.write("##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
         with open(args.out_summary, "w") as fh:
             json.dump({"n_consensus": 0}, fh)

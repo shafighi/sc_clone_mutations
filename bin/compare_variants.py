@@ -226,7 +226,13 @@ def main() -> None:
         pd.DataFrame().to_csv(args.out_private)
         return
 
-    matrix_df.reset_index().to_csv(args.out_matrix, index=False)
+    # Flatten the (clone_id, caller) column MultiIndex to single-level
+    # "clone_id::caller" headers before writing. A 2-row MultiIndex header is
+    # NOT safely re-readable with a plain read_csv downstream (the caller row
+    # becomes a corrupt data row), which previously broke build_consensus.
+    matrix_out = matrix_df.copy()
+    matrix_out.columns = [f"{clone}::{caller}" for (clone, caller) in matrix_df.columns]
+    matrix_out.reset_index().to_csv(args.out_matrix, index=False)
 
     # Per-clone concordance
     log.info("Computing caller concordance …")

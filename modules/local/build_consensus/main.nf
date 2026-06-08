@@ -17,15 +17,16 @@ process BUILD_CONSENSUS {
 
     script:
     """
-    build_consensus.py \\
+    python3 ${projectDir}/bin/build_consensus.py \\
         --variant_matrix     ${variant_matrix} \\
         --per_clone_vcf_dir  ${per_clone_vcf_dir} \\
         --min_callers        ${params.consensus_min_callers} \\
         --pass_only          ${params.consensus_pass_only} \\
-        --out_vcf            consensus_mutations.vcf.gz \\
+        --out_vcf            consensus_mutations.vcf \\
         --out_table          consensus_table.csv \\
         --out_summary        consensus_summary.json
 
+    bgzip -f consensus_mutations.vcf
     tabix -p vcf consensus_mutations.vcf.gz
     """
 }
