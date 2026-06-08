@@ -12,16 +12,19 @@ process FILTER_CELLS {
     output:
         path 'filtered_manifest.csv', emit: filtered_manifest
         path 'cell_qc_summary.csv',   emit: qc_summary
+        path 'clone_callability.csv', emit: callability
 
     script:
     """
-    filter_cells.py \\
-        --assignments       ${cell_clone_assignments} \\
-        --bam_manifest      ${bam_manifest} \\
-        --min_mapped_reads  ${params.min_mapped_reads} \\
-        --max_dup_rate      ${params.max_duplication_rate} \\
-        --min_confidence    ${params.min_clone_confidence} \\
-        --out_manifest      filtered_manifest.csv \\
-        --out_qc_summary    cell_qc_summary.csv
+    python3 ${projectDir}/bin/filter_cells.py \\
+        --assignments           ${cell_clone_assignments} \\
+        --bam_manifest          ${bam_manifest} \\
+        --min_mapped_reads      ${params.min_mapped_reads} \\
+        --max_dup_rate          ${params.max_duplication_rate} \\
+        --min_confidence        ${params.min_clone_confidence} \\
+        --min_cells_for_calling ${params.min_cells_for_calling} \\
+        --out_manifest          filtered_manifest.csv \\
+        --out_qc_summary        cell_qc_summary.csv \\
+        --out_callability       clone_callability.csv
     """
 }

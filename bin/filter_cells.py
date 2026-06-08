@@ -44,8 +44,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--min_mapped_reads",  type=int,   default=100_000)
     p.add_argument("--max_dup_rate",      type=float, default=0.95)
     p.add_argument("--min_confidence",    type=float, default=0.0)
+    p.add_argument("--min_cells_for_calling", type=int, default=0,
+                   help="clones with fewer cells are kept in CN analysis but "
+                        "excluded from the (expensive) pseudobulk mutation calling")
     p.add_argument("--out_manifest",      required=True)
     p.add_argument("--out_qc_summary",    required=True)
+    p.add_argument("--out_callability",   required=True)
     return p.parse_args()
 
 
@@ -55,16 +59,36 @@ def main() -> None:
     assignments = pd.read_csv(args.assignments)
     manifest    = pd.read_csv(args.bam_manifest)
 
-    # Merge assignments onto manifest
+    # ── Reconcile the two cell sets BEFORE the join, so dropped cells are loud
+    #    instead of silently disappearing in an inner join. ──────────────────
+    bam_cells    = set(manifest["cell_id"])
+    assign_cells = set(assignments["cell_id"])
+    missing_bam    = assign_cells - bam_cells   # have a clone, but no BAM to merge
+    missing_assign = bam_cells - assign_cells   # have a BAM, but no clone label
+    if missing_bam:
+        ex = ", ".join(sorted(missing_bam)[:5])
+        log.warning(
+            f"{len(missing_bam)} cell(s) have a clone assignment but NO BAM in the "
+            f"manifest -> excluded from pseudobulk (e.g. {ex})"
+        )
+    if missing_assign:
+        ex = ", ".join(sorted(missing_assign)[:5])
+        log.warning(
+            f"{len(missing_assign)} cell(s) have a BAM but NO clone assignment -> "
+            f"excluded (e.g. {ex})"
+        )
+
+    # Merge assignments onto manifest (inner: a cell needs both a clone and a BAM)
     merged = manifest.merge(
         assignments[["cell_id", "clone_id", "confidence", "flagged"]],
         on="cell_id",
         how="inner",
     )
     n_start = len(merged)
-    log.info(f"Starting with {n_start} cells (after inner join with assignments)")
-
-    qc_rows = []
+    log.info(
+        f"Starting with {n_start} cells across {merged['clone_id'].nunique()} "
+        f"clone(s) (cells present in BOTH manifest and assignments)"
+    )
 
     # Filter by confidence
     mask_conf = merged["confidence"] >= args.min_confidence
@@ -83,29 +107,58 @@ def main() -> None:
         "pre-computed per-cell QC metrics (not computed here by default)."
     )
 
-    # Build summary
+    # ── Callability gate ────────────────────────────────────────────────────
+    # Identifying a clone (tree structure) and being able to CALL mutations on
+    # it (pseudobulk depth) are two different things. Every clone is reported;
+    # only those with enough cells are sent to the expensive mutation calling.
+    clone_counts = (
+        merged.groupby("clone_id")["cell_id"].count().sort_index()
+    )
+    callable_rows, callable_clones = [], []
+    for clone_id, n in clone_counts.items():
+        n = int(n)
+        is_callable = n >= args.min_cells_for_calling
+        if is_callable:
+            callable_clones.append(clone_id)
+            reason = "ok"
+            log.info(f"  CALLABLE  {clone_id}: {n} cells")
+        else:
+            reason = f"n_cells={n} < min_cells_for_calling={args.min_cells_for_calling}"
+            log.warning(
+                f"  EXCLUDED  {clone_id}: {n} cells (< {args.min_cells_for_calling}) "
+                f"-> kept in CN analysis, NOT sent to mutation calling"
+            )
+        callable_rows.append(
+            {"clone_id": clone_id, "n_cells": n,
+             "callable": is_callable, "reason": reason}
+        )
+
+    callability = pd.DataFrame(callable_rows)
+    callability.to_csv(args.out_callability, index=False)
+
+    if not callable_clones:
+        log.error(
+            f"No clone has >= {args.min_cells_for_calling} cells — nothing to call. "
+            f"Lower --min_cells_for_calling if this is unexpected."
+        )
+
+    # filtered_manifest feeds MERGE_BAMS: only callable clones go forward.
+    out = merged[merged["clone_id"].isin(callable_clones)]
+    log.info(
+        f"Pseudobulk manifest: {len(out)} cells across {len(callable_clones)} "
+        f"callable clone(s) of {merged['clone_id'].nunique()} total"
+    )
+
+    # Summary reports ALL clones (with a callable flag) for transparency.
     summary = (
         merged.groupby("clone_id")
         .agg(n_cells=("cell_id", "count"))
         .reset_index()
     )
     summary["pct_passed"] = (summary["n_cells"] / n_start * 100).round(2)
+    summary["callable"] = summary["clone_id"].isin(callable_clones)
 
-    n_final = len(merged)
-    log.info(
-        f"After filtering: {n_final}/{n_start} cells retained "
-        f"across {merged['clone_id'].nunique()} clones"
-    )
-
-    # Warn about clones with very few cells
-    low_clones = summary[summary["n_cells"] < 5]
-    if not low_clones.empty:
-        log.warning(
-            f"{len(low_clones)} clone(s) have <5 cells after QC filtering: "
-            + ", ".join(low_clones["clone_id"].tolist())
-        )
-
-    merged.to_csv(args.out_manifest, index=False)
+    out.to_csv(args.out_manifest, index=False)
     summary.to_csv(args.out_qc_summary, index=False)
 
 

@@ -90,6 +90,9 @@ def parse_args() -> argparse.Namespace:
                    choices=["internal_node", "distance", "event_profile", "hybrid"])
     p.add_argument("--min_cells_per_clone",  type=int,   default=5)
     p.add_argument("--min_branch_length",    type=float, default=0.0)
+    p.add_argument("--min_event_count",      type=float, default=0.0,
+                   help="absolute floor on CN events a branch must carry to "
+                        "define a clone (MEDICC2 branch length = event count)")
     p.add_argument("--distance_threshold",   type=float, default=None)
     p.add_argument("--event_similarity_thr", type=float, default=0.5)
     p.add_argument("--max_clones",           type=int,   default=None)
@@ -180,6 +183,7 @@ def strategy_internal_node(
     min_cells: int,
     min_branch_length: float,
     max_clones: Optional[int],
+    min_event_count: float = 0.0,
 ) -> Dict[str, List[str]]:
     """
     Cut the tree at internal nodes with long incoming branches and
@@ -191,11 +195,12 @@ def strategy_internal_node(
     """
     log.info(
         f"[internal_node] min_branch_length={min_branch_length}, "
-        f"min_cells={min_cells}"
+        f"min_cells={min_cells}, min_event_count={min_event_count}"
     )
 
     clones = cut_tree_into_clones(
-        tree, min_cells=min_cells, min_branch_length=min_branch_length
+        tree, min_cells=min_cells, min_branch_length=min_branch_length,
+        min_event_count=min_event_count,
     )
     log.info(f"Partitioned tree into {len(clones)} clade(s)")
 
@@ -507,6 +512,7 @@ def main() -> None:
             min_cells=args.min_cells_per_clone,
             min_branch_length=args.min_branch_length,
             max_clones=args.max_clones,
+            min_event_count=args.min_event_count,
         )
     elif args.strategy == "distance":
         clones = strategy_distance(

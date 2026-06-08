@@ -22,7 +22,7 @@ process ASSIGN_CLONES {
     def dist_arg  = params.distance_threshold ? "--distance_threshold ${params.distance_threshold}" : ""
     def max_arg   = params.max_clones         ? "--max_clones ${params.max_clones}"                  : ""
     """
-    assign_clones.py \\
+    python3 ${projectDir}/bin/assign_clones.py \\
         --tree_pkl             ${tree_data} \\
         --node_table           ${node_table} \\
         --scunique_events      ${scunique_events} \\
@@ -31,6 +31,7 @@ process ASSIGN_CLONES {
         --strategy             ${params.clone_strategy} \\
         --min_cells_per_clone  ${params.min_cells_per_clone} \\
         --min_branch_length    ${params.min_branch_length} \\
+        --min_event_count      ${params.min_event_count} \\
         ${dist_arg} \\
         --event_similarity_thr ${params.event_similarity_thr} \\
         ${max_arg} \\

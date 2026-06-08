@@ -7,6 +7,7 @@ a dendropy.Tree or a path to a Newick file.
 
 from __future__ import annotations
 
+import logging
 import pickle
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -14,6 +15,8 @@ from typing import Dict, List, Optional, Set, Tuple
 import dendropy
 import numpy as np
 import pandas as pd
+
+log = logging.getLogger(__name__)
 
 
 # ─── I/O ────────────────────────────────────────────────────────────────────
@@ -162,6 +165,7 @@ def cut_tree_into_clones(
     tree: dendropy.Tree,
     min_cells: int,
     min_branch_length: float = 0.0,
+    min_event_count: float = 0.0,
 ) -> Dict[str, List[str]]:
     """
     Partition a tree into clones by recursively cutting the longest qualifying
@@ -169,10 +173,15 @@ def cut_tree_into_clones(
     leaves. This guarantees every emitted clone is adequately sized, so small
     fragments never collapse back into a single clone.
 
-    A branch qualifies if its length is >= *min_branch_length*. When
-    *min_branch_length* <= 0 (or None), an automatic threshold of
-    mean + 1 standard deviation of internal edge lengths is used, so only the
-    longest branches (clear clone boundaries) are cut.
+    A branch qualifies if its length is >= the effective threshold. The
+    threshold is the larger of:
+      - *min_branch_length* if given (> 0), otherwise an automatic value of
+        mean + 1 standard deviation of internal edge lengths; and
+      - *min_event_count*, an absolute floor on the number of copy-number
+        events a branch must carry to define a clone. Because MEDICC2 branch
+        lengths ARE integer counts of copy-number events, this floor prevents
+        near-noise branches from ever becoming clone boundaries, independent of
+        the (sometimes tiny) auto threshold.
 
     Returns {clade_label: [cell_id, ...]}.
     """
@@ -181,13 +190,37 @@ def cut_tree_into_clones(
         for node in tree.preorder_node_iter()
         if not node.is_leaf() and node.parent_node is not None
     ]
+    auto_threshold = None
     threshold = min_branch_length
     if threshold is None or threshold <= 0.0:
         if internal_edges:
             arr = np.array(internal_edges, dtype=float)
-            threshold = float(arr.mean() + arr.std())
+            auto_threshold = float(arr.mean() + arr.std())
+            threshold = auto_threshold
         else:
             threshold = 0.0
+        source = "auto(mean+SD)"
+    else:
+        source = "user(--min_branch_length)"
+
+    # Absolute event-count floor (a branch length == a count of CN events).
+    floor = float(min_event_count or 0.0)
+    effective = max(threshold, floor)
+
+    if internal_edges:
+        arr = np.array(internal_edges, dtype=float)
+        top = ", ".join(f"{v:.1f}" for v in np.sort(arr)[::-1][:5])
+        mean_e, std_e, max_e = float(arr.mean()), float(arr.std()), float(arr.max())
+    else:
+        top, mean_e, std_e, max_e = "none", 0.0, 0.0, 0.0
+    log.info(
+        "[cut_tree] %d internal edges (mean=%.3f, SD=%.3f, max=%.1f); "
+        "threshold=%.3f from %s; event-count floor=%.1f; effective cut=%.3f; "
+        "longest branches: %s",
+        len(internal_edges), mean_e, std_e, max_e,
+        threshold, source, floor, effective, top,
+    )
+    threshold = effective
 
     # Precompute the leaf set under every node (postorder, so children first).
     node_clade: Dict[dendropy.Node, frozenset] = {}
