@@ -18,9 +18,10 @@ process COMPARE_VARIANTS {
 
     script:
     """
-    mkdir -p per_clone_vcfs comparison_plots
+    export MPLCONFIGDIR="\$PWD/.matplotlib"
+    mkdir -p per_clone_vcfs comparison_plots "\$MPLCONFIGDIR"
 
-    compare_variants.py \\
+    python3 \$PWD/compare_variants.py \\
         --vcf_list         ${vcf_list.join(' ')} \\
         --clone_summary    ${clone_summary} \\
         --out_matrix       variant_matrix.csv \\

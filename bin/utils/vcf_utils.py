@@ -176,12 +176,19 @@ def classify_variant_sharing(
     n_clones = clone_presence.shape[1]
     clone_counts = clone_presence.sum(axis=1)
 
-    labels = pd.cut(
-        clone_counts,
-        bins=[0, 1, n_clones - 1, n_clones],
-        labels=["private", "partial", "shared"],
-        include_lowest=True,
-    )
+    if n_clones == 1:
+        # With a single clone all variants are private by definition
+        labels = pd.Categorical(
+            ["private"] * len(clone_counts),
+            categories=["private", "partial", "shared"],
+        )
+    else:
+        labels = pd.cut(
+            clone_counts,
+            bins=[0, 1, n_clones - 1, n_clones],
+            labels=["private", "partial", "shared"],
+            include_lowest=True,
+        )
     result = clone_presence.copy()
     result["sharing_class"] = labels
     result["n_clones_with_variant"] = clone_counts
