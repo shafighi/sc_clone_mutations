@@ -117,34 +117,36 @@ def plot_variant_counts_per_clone(
     if "sharing_class" not in sharing_df.columns:
         return
 
-    clone_cols = [c for c in sharing_df.columns
-                  if c not in ("sharing_class", "n_clones_with_variant")]
+    # Clone columns are the 0/1 presence columns only. Exclude the variant
+    # coordinate columns that reset_index() adds (chrom/pos/ref/alt) and the
+    # bookkeeping columns — summing the string coordinates would otherwise poison
+    # the bar heights and crash matplotlib's unit handling.
+    EXCLUDE = {"sharing_class", "n_clones_with_variant", "chrom", "pos", "ref", "alt"}
+    clone_cols = [c for c in sharing_df.columns if c not in EXCLUDE]
+    if not clone_cols:
+        return
 
     counts = pd.DataFrame()
     for clone in clone_cols:
-        sub = sharing_df.groupby("sharing_class")[clone].sum()
-        counts[clone] = sub
+        counts[clone] = sharing_df.groupby("sharing_class")[clone].sum()
+    counts = counts.T  # rows = clones, cols = sharing classes
 
-    counts = counts.T
     fig, ax = plt.subplots(figsize=(max(6, len(clone_cols) * 0.6), 4))
+    x = np.arange(len(counts))                       # numeric positions: robust
     bottom = np.zeros(len(counts))
     colors = {"private": "#e74c3c", "partial": "#f39c12", "shared": "#2ecc71"}
     for cls in ["private", "partial", "shared"]:
         if cls in counts.columns:
-            ax.bar(
-                counts.index,
-                counts[cls],
-                bottom=bottom,
-                label=cls,
-                color=colors.get(cls, "gray"),
-            )
-            bottom += counts[cls].values
+            h = pd.to_numeric(counts[cls], errors="coerce").fillna(0).to_numpy()
+            ax.bar(x, h, bottom=bottom, label=cls, color=colors.get(cls, "gray"))
+            bottom += h
 
     ax.set_xlabel("Clone")
     ax.set_ylabel("Number of variants")
     ax.set_title("Variant sharing across clones")
     ax.legend()
-    ax.set_xticklabels(counts.index, rotation=45, ha="right")
+    ax.set_xticks(x)
+    ax.set_xticklabels([str(c) for c in counts.index], rotation=45, ha="right")
     plt.tight_layout()
     fig.savefig(f"{out_dir}/variant_sharing.pdf")
     fig.savefig(f"{out_dir}/variant_sharing.png", dpi=150)
@@ -278,11 +280,18 @@ def main() -> None:
         )
         clone_df.to_csv(f"{args.out_per_clone}/{clone}_variants.tsv", sep="\t", index=False)
 
-    # Plots
+    # Plots are cosmetic — every analytical output above is already written, so a
+    # plotting hiccup must never fail the pipeline.
     log.info("Generating comparison plots …")
-    plot_concordance_heatmap(concordance_df, args.out_plots)
-    plot_variant_counts_per_clone(sharing_df.reset_index(), args.out_plots)
-    plot_clone_similarity_heatmap(matrix_df, args.out_plots)
+    for fn, arg in (
+        (plot_concordance_heatmap, concordance_df),
+        (plot_variant_counts_per_clone, sharing_df.reset_index()),
+        (plot_clone_similarity_heatmap, matrix_df),
+    ):
+        try:
+            fn(arg, args.out_plots)
+        except Exception as e:
+            log.warning(f"plot {fn.__name__} skipped: {e}")
 
     log.info("variant comparison complete.")
 
