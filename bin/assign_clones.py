@@ -88,7 +88,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--bam_manifest",         required=True)
     p.add_argument("--strategy",             default="internal_node",
                    choices=["internal_node", "distance", "event_profile", "hybrid"])
-    p.add_argument("--min_cells_per_clone",  type=int,   default=5)
+    p.add_argument("--min_cells_per_clone",  type=int,   default=2)
     p.add_argument("--min_branch_length",    type=float, default=0.0)
     p.add_argument("--min_event_count",      type=float, default=0.0,
                    help="absolute floor on CN events a branch must carry to "
@@ -96,7 +96,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--distance_threshold",   type=float, default=None)
     p.add_argument("--event_similarity_thr", type=float, default=0.5)
     p.add_argument("--max_clones",           type=int,   default=None)
-    p.add_argument("--small_clone_action",   default="merge",
+    p.add_argument("--small_clone_action",   default="flag",
                    choices=["drop", "merge", "flag"])
     p.add_argument("--out_assignments",      required=True)
     p.add_argument("--out_summary",          required=True)
