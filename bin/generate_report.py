@@ -103,6 +103,38 @@ def aggregate_signatures(paths: List[str]) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values("clone_id") if rows else pd.DataFrame()
 
 
+def clone_banner(clone_summary: pd.DataFrame,
+                 reliability: Optional[pd.DataFrame]) -> tuple:
+    """
+    Loud, top-of-report status on how many clones were resolved/called.
+    Returns (level, icon, message). level in {danger, warn, ok}.
+    The danger case (one clone) is the 'where did my clones go?' guard.
+    """
+    n_clones = len(clone_summary) if (clone_summary is not None and not clone_summary.empty) else 0
+    has_rel  = reliability is not None and not reliability.empty
+    n_called   = (int(reliability["called"].sum())
+                  if has_rel and "called" in reliability.columns else n_clones)
+    n_reliable = (int(reliability["reliable"].sum())
+                  if has_rel and "reliable" in reliability.columns else None)
+
+    if n_clones <= 1:
+        return ("danger", "⛔",
+                "Only ONE clone was resolved — no subclonal structure, so there is "
+                "nothing to compare across clones. If you expected subclones, then no "
+                "tree branch carried enough copy-number events to split them: lower "
+                "min_event_count (the clone-boundary threshold) or inspect the tree. "
+                "See clone_summary.csv.")
+    if n_reliable == 0:
+        return ("warn", "⚠",
+                f"{n_clones} clones resolved and {n_called} called — but NONE meet the "
+                f"reliable cell-count threshold, so every call is exploratory "
+                f"(low pseudobulk depth). See the reliability table below.")
+    tail = f" · {n_reliable} reliable" if n_reliable is not None else ""
+    return ("ok", "✅",
+            f"{n_clones} clones resolved · {n_called} called{tail}. "
+            f"Small clones are called and flagged below.")
+
+
 def load_json(path: str) -> Dict[str, Any]:
     try:
         with open(path) as fh:
@@ -160,6 +192,10 @@ def build_markdown(
     lines.append(f"# sc_clone_mutations Report")
     lines.append(f"\n**Pipeline version:** {version}  ")
     lines.append(f"**Generated:** {ts}\n")
+
+    # ── Clone banner (loud 'where did my clones go?' status) ─────────────────
+    _level, _icon, _msg = clone_banner(clone_summary, reliability)
+    lines.append(f"> {_icon} **Clones:** {_msg}\n")
 
     # ── 1. Run overview ──────────────────────────────────────────────────────
     lines.append("## 1. Input Validation")
@@ -278,6 +314,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 Generated: <strong>{timestamp}</strong></p>
 <hr>
 
+{clone_banner}
+
 <h2>1. Input Validation</h2>
 <p>Status: <span class="badge {badge_class}">{status}</span></p>
 {validation_details}
@@ -367,6 +405,17 @@ def build_html(
     else:
         warnings_section = ""
 
+    _banner_colors = {"danger": ("#f8d7da", "#dc3545"),
+                      "warn":   ("#fff3cd", "#ffc107"),
+                      "ok":     ("#d1e7dd", "#198754")}
+    level, icon, msg = clone_banner(clone_summary, reliability)
+    bg, border = _banner_colors[level]
+    clone_banner_html = (
+        f'<div style="background:{bg};border-left:6px solid {border};'
+        f'padding:0.9rem 1.1rem;margin:1.2rem 0;border-radius:4px;font-size:1.05rem;">'
+        f'{icon} <strong>Clones:</strong> {msg}</div>'
+    )
+
     tree_section = (f'<img src="{tree_png_uri}" style="max-width:100%;height:auto;">'
                     if tree_png_uri else "<p>Tree image not available.</p>")
 
@@ -399,6 +448,7 @@ def build_html(
         badge_class=badge_class,
         validation_details=validation_details,
         validation_errors=validation_errors,
+        clone_banner=clone_banner_html,
         clone_table=clone_table_html,
         tree_section=tree_section,
         reliability_section=reliability_section,
