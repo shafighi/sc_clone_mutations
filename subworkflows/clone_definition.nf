@@ -53,4 +53,5 @@ workflow CLONE_DEFINITION {
         clone_summary           = ASSIGN_CLONES.out.clone_summary
         clone_events            = ASSIGN_CLONES.out.clone_events
         tree_plot               = PLOT_CLONE_TREE.out.plot
+        tree_plot_png           = PLOT_CLONE_TREE.out.plot_png
 }

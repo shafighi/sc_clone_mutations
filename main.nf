@@ -275,6 +275,8 @@ workflow {
     // 'insufficient_evidence'. Consumes the normalized per-caller VCFs; only the
     // configured caller is used so there is one fit per clone. Terminal stage —
     // does not affect any existing process hash.
+    ch_sig_exposures = Channel.value([])
+    ch_sig_plots     = Channel.value([])
     if (params.run_signatures) {
         if (!params.cosmic_signatures)
             error "ERROR: --run_signatures requires --cosmic_signatures (COSMIC SBS reference). See assets/cosmic/README.md"
@@ -282,6 +284,8 @@ workflow {
         ch_sig_vcfs = MUTATION_CALLING.out.vcfs_per_clone
             .filter { clone_id, caller, vcf, tbi -> caller == params.sig_caller }
         MUTATIONAL_SIGNATURES(ch_sig_vcfs, ch_fasta, ch_fai, ch_cosmic)
+        ch_sig_exposures = MUTATIONAL_SIGNATURES.out.exposures.collect()
+        ch_sig_plots     = MUTATIONAL_SIGNATURES.out.plot.collect()
     }
 
     // ── Stage F: Reporting ────────────────────────────────────────────────────
@@ -291,7 +295,11 @@ workflow {
         PSEUDOBULK.out.qc_reports,
         MUTATION_CALLING.out.caller_stats,
         VARIANT_ANALYSIS.out.consensus_table,
-        VARIANT_ANALYSIS.out.cross_clone_matrix
+        VARIANT_ANALYSIS.out.cross_clone_matrix,
+        CLONE_DEFINITION.out.tree_plot_png,
+        PSEUDOBULK.out.reliability,
+        ch_sig_exposures,
+        ch_sig_plots
     )
 }
 

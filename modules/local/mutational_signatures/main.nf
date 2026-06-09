@@ -16,9 +16,13 @@ process MUTATIONAL_SIGNATURES {
         path "${clone_id}.exposures.tsv",            emit: exposures
         path "${clone_id}.exposures_bootstrap.tsv"
         path "${clone_id}.signatures_audit.json",    emit: audit
+        path "${clone_id}.signatures.png",           emit: plot, optional: true
 
     script:
     """
+    export MPLCONFIGDIR="\$PWD/.matplotlib"
+    mkdir -p "\$MPLCONFIGDIR"
+
     python3 ${projectDir}/bin/fit_signatures.py \\
         --clone_id   ${clone_id} \\
         --vcf        ${vcf} \\

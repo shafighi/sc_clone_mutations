@@ -30,6 +30,7 @@ import argparse
 import datetime
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -50,10 +51,56 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--clone_summary",      required=True)
     p.add_argument("--consensus_table",    required=True)
     p.add_argument("--cross_clone_matrix", required=True)
+    p.add_argument("--clone_reliability",  default=None)
+    p.add_argument("--clone_tree_png",     default=None)
+    p.add_argument("--signatures",         nargs="*", default=[],
+                   help="per-clone *.exposures.tsv files")
+    p.add_argument("--signature_plots",    nargs="*", default=[],
+                   help="per-clone *.signatures.png files")
     p.add_argument("--pipeline_version",   default="unknown")
     p.add_argument("--out_html",           required=True)
     p.add_argument("--out_md",             required=True)
     return p.parse_args()
+
+
+def img_data_uri(path: Optional[str]) -> Optional[str]:
+    """Read a PNG and return a base64 data URI so the HTML is self-contained."""
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        import base64
+        with open(path, "rb") as fh:
+            b64 = base64.b64encode(fh.read()).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+    except Exception as e:
+        log.warning(f"Could not embed image {path}: {e}")
+        return None
+
+
+def aggregate_signatures(paths: List[str]) -> pd.DataFrame:
+    """
+    Collapse per-clone *.exposures.tsv into one tidy row per clone:
+    clone_id, verdict (clone_label), and the top bootstrap-stable signatures.
+    """
+    rows = []
+    for p in paths or []:
+        try:
+            df = pd.read_csv(p, sep="\t")   # exposures files are tab-separated
+        except Exception as e:
+            log.warning(f"Could not load {p}: {e}")
+            continue
+        if df.empty or "clone_id" not in df.columns:
+            continue
+        clone = str(df["clone_id"].iloc[0])
+        verdict = str(df["clone_label"].iloc[0]) if "clone_label" in df.columns else "n/a"
+        stable = df[df["stable"]] if "stable" in df.columns else df
+        stable = stable.sort_values("fraction", ascending=False) if "fraction" in stable.columns else stable
+        top = "; ".join(
+            f"{r['signature']} ({r['fraction']:.0%})"
+            for _, r in stable.head(5).iterrows()
+        ) if not stable.empty else "none stable"
+        rows.append({"clone_id": clone, "verdict": verdict, "top_signatures": top})
+    return pd.DataFrame(rows).sort_values("clone_id") if rows else pd.DataFrame()
 
 
 def load_json(path: str) -> Dict[str, Any]:
@@ -104,6 +151,8 @@ def build_markdown(
     consensus_table: pd.DataFrame,
     variant_matrix: pd.DataFrame,
     version: str,
+    reliability: Optional[pd.DataFrame] = None,
+    signatures: Optional[pd.DataFrame] = None,
 ) -> str:
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines: List[str] = []
@@ -143,6 +192,16 @@ def build_markdown(
     else:
         lines.append("_Clone summary not available._\n")
 
+    # ── Clone reliability for mutation calling ───────────────────────────────
+    lines.append("## Clone Reliability for Mutation Calling")
+    if reliability is not None and not reliability.empty:
+        lines.append(df_to_md(reliability))
+        lines.append("_Clones below the reliable threshold are still called but their "
+                     "variant lists are exploratory (low pseudobulk depth; tumor-only "
+                     "artefacts/germline not subtracted)._\n")
+    else:
+        lines.append("_Reliability table not available._\n")
+
     # ── 3. Consensus mutations ────────────────────────────────────────────────
     lines.append("## 3. Consensus Mutation Summary")
     if not consensus_table.empty:
@@ -165,6 +224,17 @@ def build_markdown(
     else:
         lines.append("_Variant matrix not available._")
     lines.append("")
+
+    # ── Mutational signatures ────────────────────────────────────────────────
+    lines.append("## Mutational Signatures (per clone)")
+    if signatures is not None and not signatures.empty:
+        lines.append(df_to_md(signatures))
+        lines.append("_'verdict' is the audit label; only bootstrap-stable signatures "
+                     "are listed. See the HTML report for per-clone SBS96 spectra and "
+                     "exposure plots._\n")
+    else:
+        lines.append("_Signatures not run (enable with --run_signatures and "
+                     "--cosmic_signatures)._\n")
 
     # ── 5. Warnings ───────────────────────────────────────────────────────────
     warnings: List[str] = []
@@ -216,11 +286,20 @@ Generated: <strong>{timestamp}</strong></p>
 <h2>2. Clone Assignment</h2>
 {clone_table}
 
+<h2>Clone Tree</h2>
+{tree_section}
+
+<h2>Clone Reliability for Mutation Calling</h2>
+{reliability_section}
+
 <h2>3. Consensus Mutations</h2>
 {consensus_table}
 
 <h2>4. Cross-Clone Variant Sharing</h2>
 {sharing_section}
+
+<h2>Mutational Signatures</h2>
+{signatures_section}
 
 {warnings_section}
 
@@ -235,6 +314,10 @@ def build_html(
     consensus_table: pd.DataFrame,
     variant_matrix: pd.DataFrame,
     version: str,
+    reliability: Optional[pd.DataFrame] = None,
+    tree_png_uri: Optional[str] = None,
+    signatures: Optional[pd.DataFrame] = None,
+    signature_plot_uris: Optional[List[str]] = None,
 ) -> str:
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     status = val_report.get("status", "unknown")
@@ -284,6 +367,31 @@ def build_html(
     else:
         warnings_section = ""
 
+    tree_section = (f'<img src="{tree_png_uri}" style="max-width:100%;height:auto;">'
+                    if tree_png_uri else "<p>Tree image not available.</p>")
+
+    if reliability is not None and not reliability.empty:
+        reliability_section = (
+            df_to_html(reliability) +
+            "<p class='text-muted'>Clones below the reliable threshold are still "
+            "called, but their variant lists are exploratory (low pseudobulk depth; "
+            "tumor-only artefacts/germline not subtracted).</p>"
+        )
+    else:
+        reliability_section = "<p>Not available.</p>"
+
+    if signatures is not None and not signatures.empty:
+        imgs = "".join(
+            f'<div style="margin:1rem 0;"><img src="{u}" '
+            f'style="max-width:100%;height:auto;"></div>'
+            for u in (signature_plot_uris or [])
+        )
+        signatures_section = df_to_html(signatures) + imgs
+    else:
+        signatures_section = ("<p>Signatures not run (enable with "
+                              "<code>--run_signatures</code> and "
+                              "<code>--cosmic_signatures</code>).</p>")
+
     return HTML_TEMPLATE.format(
         version=version,
         timestamp=ts,
@@ -292,8 +400,11 @@ def build_html(
         validation_details=validation_details,
         validation_errors=validation_errors,
         clone_table=clone_table_html,
+        tree_section=tree_section,
+        reliability_section=reliability_section,
         consensus_table=consensus_html,
         sharing_section=sharing_section,
+        signatures_section=signatures_section,
         warnings_section=warnings_section,
     )
 
@@ -305,9 +416,18 @@ def main() -> None:
     clone_summary  = load_csv_safe(args.clone_summary)
     consensus      = load_csv_safe(args.consensus_table)
     variant_matrix = load_csv_safe(args.cross_clone_matrix)
+    reliability    = load_csv_safe(args.clone_reliability) if args.clone_reliability else pd.DataFrame()
+    signatures     = aggregate_signatures(args.signatures)
+    tree_png_uri   = img_data_uri(args.clone_tree_png)
+    sig_plot_uris  = [u for u in (img_data_uri(p) for p in args.signature_plots) if u]
 
-    md_content   = build_markdown(val_report, clone_summary, consensus, variant_matrix, args.pipeline_version)
-    html_content = build_html(val_report, clone_summary, consensus, variant_matrix, args.pipeline_version)
+    md_content   = build_markdown(
+        val_report, clone_summary, consensus, variant_matrix, args.pipeline_version,
+        reliability=reliability, signatures=signatures)
+    html_content = build_html(
+        val_report, clone_summary, consensus, variant_matrix, args.pipeline_version,
+        reliability=reliability, tree_png_uri=tree_png_uri,
+        signatures=signatures, signature_plot_uris=sig_plot_uris)
 
     with open(args.out_md, "w") as fh:
         fh.write(md_content)

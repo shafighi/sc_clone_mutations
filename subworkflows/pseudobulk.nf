@@ -68,4 +68,5 @@ workflow PSEUDOBULK {
     emit:
         clone_bams  = ch_processed_bams   // [ clone_id, bam, bai ]
         qc_reports  = ch_qc_reports
+        reliability = FILTER_CELLS.out.reliability
 }

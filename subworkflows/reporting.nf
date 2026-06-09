@@ -16,6 +16,10 @@ workflow REPORTING {
         ch_caller_stats
         ch_consensus_table
         ch_cross_clone_matrix
+        ch_tree_png
+        ch_reliability
+        ch_signatures
+        ch_signature_plots
 
     main:
         // Gather all QC inputs for MultiQC
@@ -33,7 +37,11 @@ workflow REPORTING {
             ch_validation_report,
             ch_clone_summary,
             ch_consensus_table,
-            ch_cross_clone_matrix
+            ch_cross_clone_matrix,
+            ch_tree_png,
+            ch_reliability,
+            ch_signatures,
+            ch_signature_plots
         )
 
     emit:

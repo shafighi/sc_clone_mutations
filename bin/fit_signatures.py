@@ -62,6 +62,48 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def plot_signatures(clone_id, counts, exposures, sig_names, audit, out_png, top_n=8):
+    """SBS96 spectrum + top signature exposures. Non-fatal; needs matplotlib."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as e:
+        log.warning(f"[{clone_id}] matplotlib unavailable, skipping plot: {e}")
+        return
+
+    sub_colors = ["#03bcee", "#000000", "#e42926", "#cbcacb", "#a1cf63", "#eccfc6"]
+    subs = ["C>A", "C>G", "C>T", "T>A", "T>C", "T>G"]
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 7),
+                                   gridspec_kw={"height_ratios": [2, 1]})
+    colors = [sub_colors[i // 16] for i in range(96)]
+    ax1.bar(range(96), counts, color=colors, width=0.85)
+    ax1.set_xlim(-0.5, 95.5)
+    ax1.set_ylabel("Mutations")
+    ax1.set_xticks([])
+    ax1.set_title(f"{clone_id} — SBS96 spectrum (n={audit['n_snv']}, "
+                  f"cosine={audit['reconstruction_cosine']:.3f}, "
+                  f"verdict={audit['label']})")
+    ymax = ax1.get_ylim()[1]
+    for i, s in enumerate(subs):
+        ax1.text(i * 16 + 7.5, ymax * 0.95, s, ha="center", fontweight="bold")
+
+    order = sorted(range(len(sig_names)), key=lambda k: exposures[k], reverse=True)[:top_n]
+    total = float(exposures.sum()) or 1.0
+    names = [sig_names[k] for k in order]
+    fracs = [float(exposures[k]) / total for k in order]
+    stable = {s["signature"]: s["stable"] for s in audit["per_signature"]}
+    bar_colors = ["#2c7fb8" if stable.get(n) else "#bdbdbd" for n in names]
+    ax2.bar(range(len(names)), fracs, color=bar_colors)
+    ax2.set_xticks(range(len(names)))
+    ax2.set_xticklabels(names, rotation=45, ha="right")
+    ax2.set_ylabel("Exposure fraction")
+    ax2.set_title("Top signatures (blue = bootstrap-stable, grey = unstable)")
+    plt.tight_layout()
+    fig.savefig(out_png, dpi=130)
+    plt.close(fig)
+
+
 def main() -> None:
     args = parse_args()
     channels = su.sbs96_channels()
@@ -115,6 +157,9 @@ def main() -> None:
 
     with open(f"{args.out_prefix}.signatures_audit.json", "w") as fh:
         json.dump(audit, fh, indent=2)
+
+    plot_signatures(args.clone_id, counts, exposures, sig_names, audit,
+                    f"{args.out_prefix}.signatures.png")
 
     # Loud, honest verdict — never bury a failure label.
     verdict = audit["label"]
