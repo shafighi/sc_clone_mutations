@@ -44,13 +44,49 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--min_mapped_reads",  type=int,   default=100_000)
     p.add_argument("--max_dup_rate",      type=float, default=0.95)
     p.add_argument("--min_confidence",    type=float, default=0.0)
-    p.add_argument("--min_cells_for_calling", type=int, default=0,
-                   help="clones with fewer cells are kept in CN analysis but "
-                        "excluded from the (expensive) pseudobulk mutation calling")
-    p.add_argument("--out_manifest",      required=True)
-    p.add_argument("--out_qc_summary",    required=True)
-    p.add_argument("--out_callability",   required=True)
+    p.add_argument("--min_cells_for_calling", type=int, default=2,
+                   help="clones with fewer cells are not sent to mutation calling")
+    p.add_argument("--min_cells_reliable",    type=int, default=20,
+                   help="clones with fewer cells are still called but flagged LOW confidence")
+    p.add_argument("--out_manifest",       required=True)
+    p.add_argument("--out_qc_summary",     required=True)
+    p.add_argument("--out_reliability",    required=True)
+    p.add_argument("--out_reliability_md", required=True)
     return p.parse_args()
+
+
+def write_reliability_md(rel: pd.DataFrame, path: str,
+                         min_call: int, min_reliable: int) -> None:
+    """Human-readable per-clone reliability report (the 'why' for the user)."""
+    lines = [
+        "# Clone reliability for mutation calling", "",
+        f"A clone is **called** if it has at least **{min_call}** cells, and treated "
+        f"as **reliable** if it has at least **{min_reliable}** cells. Clones below "
+        f"the reliable threshold are still called — their VCFs are produced — but "
+        f"their variant lists are exploratory, not confident.", "",
+        "| Clone | Cells | ~Depth vs largest | Called | Reliable | Note |",
+        "|-------|------:|------------------:|:------:|:--------:|------|",
+    ]
+    for _, r in rel.sort_values("n_cells", ascending=False).iterrows():
+        reliable_cell = ("**yes**" if r["reliable"]
+                         else ("low" if r["called"] else "—"))
+        lines.append(
+            f"| {r['clone_id']} | {int(r['n_cells'])} | {r['rel_coverage']:.0%} | "
+            f"{'yes' if r['called'] else 'no'} | {reliable_cell} | {r['reason']} |"
+        )
+    lines += [
+        "", "## Why small clones give unreliable calls", "",
+        "- **Pseudobulk depth scales with cell count.** Coverage is roughly "
+        "proportional to the number of merged cells, so a clone with few cells has "
+        "too few reads at most positions to call somatic SNVs confidently.",
+        "- **Tumor-only calling.** With no matched normal, germline variants and "
+        "sequencing artefacts are not subtracted; they inflate the call set, and the "
+        "effect is worst at low depth.",
+        "- **scDNA-seq sparsity.** Per-cell coverage is sparse and uneven, so merging "
+        "a handful of cells leaves coverage gaps across the genome.",
+    ]
+    with open(path, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
 
 
 def main() -> None:
@@ -107,56 +143,58 @@ def main() -> None:
         "pre-computed per-cell QC metrics (not computed here by default)."
     )
 
-    # ── Callability gate ────────────────────────────────────────────────────
-    # Identifying a clone (tree structure) and being able to CALL mutations on
-    # it (pseudobulk depth) are two different things. Every clone is reported;
-    # only those with enough cells are sent to the expensive mutation calling.
-    clone_counts = (
-        merged.groupby("clone_id")["cell_id"].count().sort_index()
-    )
-    callable_rows, callable_clones = [], []
+    # ── Calling gate + reliability ───────────────────────────────────────────
+    # Two different questions: CAN a clone be called (does it have a usable
+    # pseudobulk) and is that call RELIABLE (enough depth to trust). We call
+    # broadly and flag reliability honestly rather than silently dropping clones.
+    clone_counts = merged.groupby("clone_id")["cell_id"].count().sort_index()
+    max_cells = int(clone_counts.max()) if len(clone_counts) else 0
+
+    rel_rows, called_clones = [], []
     for clone_id, n in clone_counts.items():
         n = int(n)
-        is_callable = n >= args.min_cells_for_calling
-        if is_callable:
-            callable_clones.append(clone_id)
-            reason = "ok"
-            log.info(f"  CALLABLE  {clone_id}: {n} cells")
+        called   = n >= args.min_cells_for_calling
+        reliable = n >= args.min_cells_reliable
+        rel_cov  = (n / max_cells) if max_cells else 0.0
+        if not called:
+            reason = (f"only {n} cells (< {args.min_cells_for_calling}) — too few for "
+                      f"a usable pseudobulk; not called")
+            log.warning(f"  SKIP      {clone_id}: {reason}")
+        elif reliable:
+            reason = f"{n} cells — sufficient pseudobulk depth"
+            called_clones.append(clone_id)
+            log.info(f"  RELIABLE  {clone_id}: {n} cells")
         else:
-            reason = f"n_cells={n} < min_cells_for_calling={args.min_cells_for_calling}"
-            log.warning(
-                f"  EXCLUDED  {clone_id}: {n} cells (< {args.min_cells_for_calling}) "
-                f"-> kept in CN analysis, NOT sent to mutation calling"
-            )
-        callable_rows.append(
-            {"clone_id": clone_id, "n_cells": n,
-             "callable": is_callable, "reason": reason}
-        )
+            reason = (f"only {n} cells (< {args.min_cells_reliable}); ~{rel_cov:.0%} of "
+                      f"the largest clone's depth — LOW-confidence calls (sparse "
+                      f"coverage; tumor-only artefacts/germline not subtracted)")
+            called_clones.append(clone_id)
+            log.warning(f"  LOW-CONF  {clone_id}: {reason}")
+        rel_rows.append({"clone_id": clone_id, "n_cells": n,
+                         "rel_coverage": round(rel_cov, 4),
+                         "called": called, "reliable": reliable, "reason": reason})
 
-    callability = pd.DataFrame(callable_rows)
-    callability.to_csv(args.out_callability, index=False)
+    reliability = pd.DataFrame(rel_rows)
+    reliability.to_csv(args.out_reliability, index=False)
+    write_reliability_md(reliability, args.out_reliability_md,
+                         args.min_cells_for_calling, args.min_cells_reliable)
 
-    if not callable_clones:
-        log.error(
-            f"No clone has >= {args.min_cells_for_calling} cells — nothing to call. "
-            f"Lower --min_cells_for_calling if this is unexpected."
-        )
+    if not called_clones:
+        log.error(f"No clone has >= {args.min_cells_for_calling} cells — nothing to call.")
 
-    # filtered_manifest feeds MERGE_BAMS: only callable clones go forward.
-    out = merged[merged["clone_id"].isin(callable_clones)]
-    log.info(
-        f"Pseudobulk manifest: {len(out)} cells across {len(callable_clones)} "
-        f"callable clone(s) of {merged['clone_id'].nunique()} total"
-    )
+    # filtered_manifest feeds MERGE_BAMS: every CALLED clone goes forward.
+    out = merged[merged["clone_id"].isin(called_clones)]
+    n_reliable = int(reliability["reliable"].sum())
+    log.info(f"Pseudobulk manifest: {len(out)} cells across {len(called_clones)} "
+             f"called clone(s) ({n_reliable} reliable) of "
+             f"{merged['clone_id'].nunique()} total")
 
-    # Summary reports ALL clones (with a callable flag) for transparency.
-    summary = (
-        merged.groupby("clone_id")
-        .agg(n_cells=("cell_id", "count"))
-        .reset_index()
-    )
+    # Summary reports ALL clones with called/reliable flags for transparency.
+    summary = (merged.groupby("clone_id")
+               .agg(n_cells=("cell_id", "count")).reset_index())
     summary["pct_passed"] = (summary["n_cells"] / n_start * 100).round(2)
-    summary["callable"] = summary["clone_id"].isin(callable_clones)
+    summary = summary.merge(reliability[["clone_id", "called", "reliable"]],
+                            on="clone_id", how="left")
 
     out.to_csv(args.out_manifest, index=False)
     summary.to_csv(args.out_qc_summary, index=False)

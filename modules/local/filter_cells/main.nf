@@ -12,7 +12,8 @@ process FILTER_CELLS {
     output:
         path 'filtered_manifest.csv', emit: filtered_manifest
         path 'cell_qc_summary.csv',   emit: qc_summary
-        path 'clone_callability.csv', emit: callability
+        path 'clone_reliability.csv', emit: reliability
+        path 'clone_reliability.md',  emit: reliability_md
 
     script:
     """
@@ -23,8 +24,10 @@ process FILTER_CELLS {
         --max_dup_rate          ${params.max_duplication_rate} \\
         --min_confidence        ${params.min_clone_confidence} \\
         --min_cells_for_calling ${params.min_cells_for_calling} \\
+        --min_cells_reliable    ${params.min_cells_reliable} \\
         --out_manifest          filtered_manifest.csv \\
         --out_qc_summary        cell_qc_summary.csv \\
-        --out_callability       clone_callability.csv
+        --out_reliability       clone_reliability.csv \\
+        --out_reliability_md    clone_reliability.md
     """
 }
