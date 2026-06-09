@@ -108,6 +108,7 @@ include { VARIANT_ANALYSIS     } from './subworkflows/variant_analysis'
 include { REPORTING            } from './subworkflows/reporting'
 include { CONVERT_SCUNIQUE     } from './modules/local/convert_scunique/main'
 include { MUTATIONAL_SIGNATURES } from './modules/local/mutational_signatures/main'
+include { AGGREGATE_SIGNATURES  } from './modules/local/aggregate_signatures/main'
 
 // ─── Parameter validation ─────────────────────────────────────────────────────
 
@@ -285,7 +286,12 @@ workflow {
             .filter { clone_id, caller, vcf, tbi -> caller == params.sig_caller }
         MUTATIONAL_SIGNATURES(ch_sig_vcfs, ch_fasta, ch_fai, ch_cosmic)
         ch_sig_exposures = MUTATIONAL_SIGNATURES.out.exposures.collect()
-        ch_sig_plots     = MUTATIONAL_SIGNATURES.out.plot.collect()
+
+        // Cross-clone combined exposure plot (one figure across all clones)
+        AGGREGATE_SIGNATURES(MUTATIONAL_SIGNATURES.out.exposures.collect())
+        ch_sig_plots = MUTATIONAL_SIGNATURES.out.plot
+            .mix(AGGREGATE_SIGNATURES.out.plot)
+            .collect()
     }
 
     // ── Stage F: Reporting ────────────────────────────────────────────────────
