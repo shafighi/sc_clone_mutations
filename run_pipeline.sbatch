@@ -51,6 +51,8 @@ nextflow run $PIPELINE_DIR/main.nf \
     --tumor_only    true \
     --mark_duplicates false \
     --callers       mutect2 \
+    --min_cells_for_calling 2 \
+    --min_cells_reliable    20 \
     --intervals     $PIPELINE_DIR/assets/intervals/GRCh37_chr1.bed \
     --outdir        /mnt/scratche/slow/fmlab/darvis01/sc_clone_mutations_results \
     -work-dir       $WORK_DIR \
