@@ -6,8 +6,7 @@ process FILTER_MUTECT2 {
     container 'broadinstitute/gatk:4.6.0.0'
 
     input:
-        tuple val(clone_id), path(vcf), path(tbi)
-        path stats
+        tuple val(clone_id), path(vcf), path(tbi), path(stats)
         path fasta
         path fai
         path dict

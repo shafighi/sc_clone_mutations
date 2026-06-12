@@ -15,7 +15,10 @@
 ================================================================================
 */
 
+include { SPLIT_INTERVALS     } from '../modules/local/split_intervals/main'
 include { MUTECT2             } from '../modules/local/mutect2/main'
+include { MERGE_VCFS          } from '../modules/local/merge_vcfs/main'
+include { MERGE_MUTECT_STATS  } from '../modules/local/merge_mutect_stats/main'
 include { FILTER_MUTECT2      } from '../modules/local/filter_mutect2/main'
 include { OCTOPUS             } from '../modules/local/octopus/main'
 include { FREEBAYES           } from '../modules/local/freebayes/main'
@@ -65,22 +68,37 @@ workflow MUTATION_CALLING {
 
         ch_vcfs = Channel.empty()
 
-        // ── Mutect2 ──────────────────────────────────────────────────────────
+        // ── Mutect2 (scatter by interval chunk → gather per clone) ───────────
         if ('mutect2' in callers) {
+            // Split the calling region into N chunks so each clone is called in
+            // parallel jobs that each stay well under the per-job time cap.
+            SPLIT_INTERVALS(ch_fasta, ch_fai, ch_dict, ch_intervals)
+
+            // One Mutect2 job per (clone × chunk): combine each clone with every chunk.
+            ch_mutect2_in = ch_tumor_normal_pairs
+                .combine(SPLIT_INTERVALS.out.intervals.flatten())
+
             MUTECT2(
-                ch_tumor_normal_pairs,
+                ch_mutect2_in,
                 ch_fasta,
                 ch_fai,
                 ch_dict,
                 ch_germline_resource,
                 ch_germline_resource_tbi,
                 ch_pon,
-                ch_pon_tbi,
-                ch_intervals
+                ch_pon_tbi
             )
+
+            // Gather all chunks back per clone.
+            MERGE_VCFS( MUTECT2.out.vcf.groupTuple(by: 0) )
+            MERGE_MUTECT_STATS( MUTECT2.out.stats.groupTuple(by: 0) )
+
+            // Join merged VCF + merged stats by clone_id (robust against process
+            // ordering) before filtering.
+            ch_filter_in = MERGE_VCFS.out.vcf.join(MERGE_MUTECT_STATS.out.stats)
+
             FILTER_MUTECT2(
-                MUTECT2.out.vcf,
-                MUTECT2.out.stats,
+                ch_filter_in,
                 ch_fasta,
                 ch_fai,
                 ch_dict
@@ -124,7 +142,7 @@ workflow MUTATION_CALLING {
 
         // Collect caller-level statistics
         ch_caller_stats = Channel.empty()
-        if ('mutect2'   in callers) ch_caller_stats = ch_caller_stats.mix(MUTECT2.out.stats)
+        if ('mutect2'   in callers) ch_caller_stats = ch_caller_stats.mix(MERGE_MUTECT_STATS.out.stats.map { id, s -> s })
         if ('octopus'   in callers) ch_caller_stats = ch_caller_stats.mix(OCTOPUS.out.stats)
         if ('freebayes' in callers) ch_caller_stats = ch_caller_stats.mix(FREEBAYES.out.stats)
 
