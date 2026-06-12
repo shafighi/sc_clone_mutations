@@ -53,6 +53,8 @@ nextflow run $PIPELINE_DIR/main.nf \
     --callers       mutect2 \
     --min_cells_for_calling 2 \
     --min_cells_reliable    20 \
+    --run_signatures    true \
+    --cosmic_signatures /mnt/scratche/slow/fmlab/darvis01/cosmic/COSMIC_Human_SBS-96_GRCh37_v3.6.tsv \
     --intervals     $PIPELINE_DIR/assets/intervals/GRCh37_chr1.bed \
     --outdir        /mnt/scratche/slow/fmlab/darvis01/sc_clone_mutations_results \
     -work-dir       $WORK_DIR \
