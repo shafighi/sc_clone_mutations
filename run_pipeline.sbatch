@@ -30,7 +30,12 @@ export NXF_SINGULARITY_CACHEDIR=/mnt/scratche/slow/fmlab/darvis01/singularity_ca
 mkdir -p $NXF_SINGULARITY_CACHEDIR
 
 # ─── Step 4: Set work directory on scratch ────────────────────────────────────
-WORK_DIR=/mnt/scratche/slow/fmlab/darvis01/nf_work_v3
+# NOTE: use a FRESH work dir whenever the DAG topology changes (e.g. the
+# scatter-gather Mutect2 stage was added). nf_work_v3 carried 15+ resumed
+# sessions from the pre-scatter / chr1-only design; resuming the new
+# whole-genome scatter on top of it bound only the first interval chunk
+# (chrM + chr1:1-130.7Mb) into Mutect2, silently dropping chr2-Y.
+WORK_DIR=/mnt/scratche/slow/fmlab/darvis01/nf_work_v4
 mkdir -p $WORK_DIR
 
 # ─── Step 5: Clone/update the pipeline ───────────────────────────────────────

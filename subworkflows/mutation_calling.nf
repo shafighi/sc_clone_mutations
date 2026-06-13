@@ -74,6 +74,19 @@ workflow MUTATION_CALLING {
             // parallel jobs that each stay well under the per-job time cap.
             SPLIT_INTERVALS(ch_fasta, ch_fai, ch_dict, ch_intervals)
 
+            // Guard: abort loudly if the scatter collapses to fewer chunks than
+            // requested. A stale -resume cache (or a work dir reused across a DAG
+            // change) can bind only the first chunk into the channel, silently
+            // restricting calling to a fraction of the genome. Fail fast rather
+            // than spend hours producing partial (e.g. chr1-only) results.
+            SPLIT_INTERVALS.out.intervals.flatten().count().subscribe { n_chunks ->
+                def expected = params.mutect2_scatter_count as int
+                if( expected > 1 && n_chunks < expected )
+                    error "Mutect2 scatter collapsed: only ${n_chunks} of ${expected} interval " +
+                          "chunks reached calling — re-run in a fresh -work-dir " +
+                          "(a stale -resume cache is the usual cause)."
+            }
+
             // One Mutect2 job per (clone × chunk): combine each clone with every chunk.
             ch_mutect2_in = ch_tumor_normal_pairs
                 .combine(SPLIT_INTERVALS.out.intervals.flatten())
