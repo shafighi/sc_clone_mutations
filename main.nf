@@ -163,26 +163,33 @@ workflow {
     """.stripIndent()
 
     // ── Build reference channel ─────────────────────────────────────────────
-    ch_fasta = Channel.fromPath(params.fasta, checkIfExists: true)
-    ch_fai   = params.fai  ? Channel.fromPath(params.fai,  checkIfExists: true)
+    // IMPORTANT: reference/resource files must be VALUE channels
+    // (Channel.value), never queue channels (Channel.fromPath). A single-item
+    // *queue* channel used as a secondary process input is consumed in lockstep
+    // with the primary channel and limits the process to ONE execution. That
+    // silently collapsed scatter-gather MUTECT2 (24 interval chunks) down to a
+    // single chunk — only chrM + chr1:1-130.7Mb was ever called. Value channels
+    // are re-emitted for every task, so the scatter fans out correctly.
+    ch_fasta = Channel.value(file(params.fasta, checkIfExists: true))
+    ch_fai   = params.fai  ? Channel.value(file(params.fai,  checkIfExists: true))
                            : ch_fasta.map { fa -> file("${fa}.fai") }
-    ch_dict  = params.dict ? Channel.fromPath(params.dict, checkIfExists: true)
+    ch_dict  = params.dict ? Channel.value(file(params.dict, checkIfExists: true))
                            : ch_fasta.map { fa -> file("${fa.parent}/${fa.baseName}.dict") }
 
     ch_germline_resource = params.germline_resource
-        ? Channel.fromPath(params.germline_resource, checkIfExists: true)
+        ? Channel.value(file(params.germline_resource, checkIfExists: true))
         : Channel.value([])
     ch_germline_resource_tbi = params.germline_resource_tbi
-        ? Channel.fromPath(params.germline_resource_tbi, checkIfExists: true)
+        ? Channel.value(file(params.germline_resource_tbi, checkIfExists: true))
         : Channel.value([])
     ch_pon = params.panel_of_normals
-        ? Channel.fromPath(params.panel_of_normals, checkIfExists: true)
+        ? Channel.value(file(params.panel_of_normals, checkIfExists: true))
         : Channel.value([])
     ch_pon_tbi = params.panel_of_normals_tbi
-        ? Channel.fromPath(params.panel_of_normals_tbi, checkIfExists: true)
+        ? Channel.value(file(params.panel_of_normals_tbi, checkIfExists: true))
         : Channel.value([])
     ch_intervals = params.intervals
-        ? Channel.fromPath(params.intervals, checkIfExists: true)
+        ? Channel.value(file(params.intervals, checkIfExists: true))
         : Channel.value([])
 
     // ── Parse input manifests ────────────────────────────────────────────────
